@@ -485,8 +485,8 @@
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
-      "sha256": "ee592aad12b3022fe6c82ba451c01a77eda6fd70f06d31a44755e0ca3e1599bc",
-      "bytes": 7382
+      "sha256": "8cb84aca3c625a1c8c9410fc0e14c363fe79081c89ab316e1c77034d3ec3897c",
+      "bytes": 7470
     },
     {
       "path": "frontend/api-docs-init.js",

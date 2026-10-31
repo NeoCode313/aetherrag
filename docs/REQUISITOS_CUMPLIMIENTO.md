@@ -13,7 +13,7 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 | 5 | job_id y endpoint de progreso/estados | Cumple | subida y seguimiento; pruebas del ciclo de ingesta |
 | 6 | Extraer texto, tablas e imágenes de PDFs técnicos complejos | Parcial | PyMuPDF, OCR opcional y fixtures reales construidos; falta validación amplia con manuales complejos independientes |
 | 7 | Guardar coordenadas y correlacionar contexto | Cumple | bounding boxes, transformaciones geométricas y spatial linker probados |
-| 8 | Chunking semántico o por layout | Cumple | secciones, párrafos, filas y presupuesto; no solo cortes por caracteres |
+| 8 | Indexación semántica/layout y almacenamiento seguro en BD vectorial | Cumple | secciones, párrafos, filas y presupuesto; Qdrant con API key, sin puerto público y con filtrado de documentos/generación |
 | 9 | Recuperación híbrida semántica/palabras e imágenes asociadas | Parcial | fusión densa/léxica y asociación presentes; modo local usa hashing aproximado, sin acreditar calidad semántica con corpus independiente |
 | 10 | Generación defensiva y admitir información insuficiente | Parcial | prompt, contrato, citas y abstención implementados; siguen fallos de unidades/entidades descritos en el plan de fidelidad |
 | 11 | Unit tests con mocks de LLM y vector store | Cumple | pruebas aisladas y bloqueo de HTTP externo accidental |
