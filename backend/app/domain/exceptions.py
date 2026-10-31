@@ -21,6 +21,17 @@ class ProviderError(DomainError):
     """An external AI provider failed in a non-recoverable way (bad request, auth)."""
 
 
+class ProviderContractError(ProviderError):
+    """Untrusted model output failed validation; diagnostic contains no input data."""
+
+    def __init__(self, reason: str = "schema", fields: tuple[str, ...] = ()):
+        self.reason, self.fields = reason, fields
+        detail = {"invalid_json": "JSON inválido o vacío", "truncated": "respuesta truncada por el límite de salida",
+                  "schema": "campos ausentes, adicionales o con tipos incorrectos"}[reason]
+        suffix = "; revisar " + ", ".join(fields) if fields else ""
+        super().__init__("El proveedor devolvió una respuesta que incumple el contrato estructurado: " + detail + suffix + ".")
+
+
 class TransientProviderError(ProviderError):
     """Recoverable failure (network glitch, timeout, HTTP 5xx). Safe to retry."""
 

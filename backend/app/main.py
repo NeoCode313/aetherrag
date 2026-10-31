@@ -63,6 +63,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version="3.0.0",
+        docs_url=None,
+        redoc_url=None,
         description=(
             "Sistema RAG Multimodal de Grado Empresarial con Arquitectura Hexagonal, "
             "Ingesta Asíncrona con Mapeo Espacial de Bounding Boxes, Recuperación Híbrida RRF "
@@ -191,6 +193,11 @@ def create_app() -> FastAPI:
     frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
     if frontend_dir.exists():
         app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+
+        @app.get("/docs", include_in_schema=False)
+        async def serve_api_docs() -> FileResponse:
+            # Self-hosted assets and external initializer work with script-src self.
+            return FileResponse(frontend_dir / "api-docs.html")
 
         @app.get("/", include_in_schema=False)
         async def serve_spa() -> FileResponse:

@@ -16,7 +16,14 @@ test("workbench security and provenance in a real browser", async (t) => {
   const server = http.createServer(async (request, response) => {
     try {
       const pathname = new URL(request.url, "http://localhost").pathname;
-      const file = path.resolve(frontend, pathname === "/" ? "index.html" : pathname.replace(/^\/static\//, ""));
+      if (pathname === "/openapi.json") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({openapi:"3.1.0",info:{title:"Fixture API",version:"test"},paths:{
+          "/api/v1/documents/seed-sample":{post:{summary:"Demo de prueba",responses:{"200":{description:"OK"}}}}
+        }}));
+        return;
+      }
+      const file = path.resolve(frontend, pathname === "/" ? "index.html" : pathname === "/docs" ? "api-docs.html" : pathname.replace(/^\/static\//, ""));
       if (!file.startsWith(frontend + path.sep)) { response.writeHead(403); response.end(); return; }
       const data = await fs.readFile(file);
       response.writeHead(200, {
@@ -53,6 +60,54 @@ test("workbench security and provenance in a real browser", async (t) => {
     await page.goto(origin);
     return { context, page, errors };
   }
+
+  await t.test("Swagger loads under CSP without a CDN and sends session CSRF on mutations", async () => {
+    const context=await browser.newContext();
+    const page=await context.newPage();
+    const external=[],errors=[];
+    page.on("pageerror",error=>errors.push(String(error)));
+    page.on("request",request=>{if(new URL(request.url()).origin!==origin) external.push(request.url());});
+    let submitted;
+    await page.route("**/api/v1/auth/session",route=>route.fulfill({contentType:"application/json",body:JSON.stringify({user:"reviewer",csrf_token:"docs-csrf"})}));
+    await page.route("**/api/v1/documents/seed-sample",route=>{
+      submitted=route.request().headers();
+      return route.fulfill({contentType:"application/json",body:"{}"});
+    });
+    await page.goto(origin+"/docs");
+    await page.locator(".swagger-ui .opblock-summary").click();
+    await page.locator(".try-out__btn").click();
+    const executed=page.waitForResponse(response=>response.url().endsWith("/api/v1/documents/seed-sample") && response.status()===200);
+    await page.locator(".execute").click();
+    await executed;
+    assert.equal(submitted["x-csrf-token"],"docs-csrf");
+    assert.deepEqual(external,[]);
+    assert.deepEqual(errors,[]);
+    await context.close();
+  });
+
+  await t.test("server Groq selection sends only the raw model, not credentials or endpoint", async () => {
+    const previous={...status};
+    Object.assign(status,{llm_provider:"openai",llm_model:"groq/openai/gpt-oss-120b",credentials_editable:false,openai_backend:"groq"});
+    let posted;
+    const {context,page,errors}=await setup(({pathname,request,json})=>{
+      if(pathname==="/api/v1/system/provider") posted=request.postDataJSON();
+      return json(status);
+    });
+    try {
+      await page.locator("#btn-open-settings").click();
+      assert.equal(await page.locator("#input-openai-token").isDisabled(),true);
+      assert.equal(await page.locator("#input-openai-endpoint").isDisabled(),true);
+      assert.equal(await page.locator("#input-openai-model").inputValue(),"openai/gpt-oss-120b");
+      await page.locator('#provider-form button[type="submit"]').click();
+      await page.waitForFunction(()=>document.getElementById("label-activity").textContent==="LISTO");
+      assert.deepEqual(posted,{llm_provider:"openai",openai_model:"openai/gpt-oss-120b"});
+      assert.deepEqual(errors,[]);
+    } finally {
+      await context.close();
+      for(const key of Object.keys(status)) delete status[key];
+      Object.assign(status,previous);
+    }
+  });
 
   await t.test("session login, CSRF header, no cached credentials and provider models only", async () => {
     let posted;

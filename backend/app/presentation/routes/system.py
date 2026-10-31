@@ -1,6 +1,7 @@
 """System status, healthcheck, and hot-swap provider configuration endpoints."""
 
 from __future__ import annotations
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -32,6 +33,9 @@ def _build_status(container: AppContainer) -> SystemStatusResponse:
         total_visuals=sum(d.visual_count for d in docs),
         generation_id=container.catalog.active_generation()["generation_id"],
         supports_images=getattr(container.llm_provider, "supports_images", False),
+        credentials_editable=container.settings.environment == "development",
+        openai_backend={"api.groq.com": "groq", "api.openai.com": "openai"}.get(
+            urlsplit(container.settings.openai_base_url).hostname, "custom"),
     )
 
 

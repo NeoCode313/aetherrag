@@ -95,7 +95,9 @@ class AppContainer:
         active = self.catalog.active_generation()
         self.store_for_generation(active["generation_id"]).ensure_collection(
             self.resolve_embedder(active["profile_id"]).dimension)
-        self.active_provider_name, self.llm_provider = make_llm(self.settings, self.llm_executor)
+        selected_llm = self.catalog.get_setting("llm_profile") or {}
+        self.active_provider_name, self.llm_provider = make_llm(self.settings, self.llm_executor,
+            provider=selected_llm.get("provider"), model=selected_llm.get("model"))
         self.parser = PyMuPDFDocumentParser(
             storage=self.storage, ocr_enabled=self.settings.ocr_enabled,
             ocr_language=self.settings.ocr_language, max_pages=self.settings.pdf_max_pages,
@@ -183,6 +185,7 @@ class AppContainer:
 
     def update_provider(self, llm_provider, **kwargs):
         with self._lock:
+            candidate = self.settings.model_copy(deep=True)
             # In test/production or for local provider, raw secrets/URLs are rejected.
             for key in ("gemini_api_key", "openai_api_key", "openai_base_url", "ollama_base_url"):
                 if kwargs.get(key) and (self.settings.environment != "development" or llm_provider == "local"):
@@ -190,20 +193,26 @@ class AppContainer:
             if self.settings.environment == "development" and llm_provider != "local":
                 from app.infrastructure.providers import validate_endpoint
                 if kwargs.get("gemini_api_key"):
-                    self.settings.gemini_api_key = kwargs["gemini_api_key"].strip().strip("'\"")
+                    candidate.gemini_api_key = kwargs["gemini_api_key"].strip().strip("'\"")
                 if kwargs.get("ollama_base_url"):
-                    self.settings.ollama_base_url = validate_endpoint(kwargs["ollama_base_url"].strip(), self.settings.provider_allowed_hosts)
+                    candidate.ollama_base_url = validate_endpoint(kwargs["ollama_base_url"].strip(), candidate.provider_allowed_hosts)
                 if kwargs.get("openai_base_url"):
-                    self.settings.openai_base_url = validate_endpoint(kwargs["openai_base_url"].strip(), self.settings.provider_allowed_hosts)
+                    candidate.openai_base_url = validate_endpoint(kwargs["openai_base_url"].strip(), candidate.provider_allowed_hosts)
                 if kwargs.get("openai_api_key"):
                     clean_key = kwargs["openai_api_key"].strip().strip("'\"")
-                    self.settings.openai_api_key = clean_key
-                    if "groq.com" in self.settings.openai_base_url.lower() or clean_key.startswith("gsk_"):
-                        self.settings.groq_api_key = clean_key
+                    from urllib.parse import urlsplit
+                    if urlsplit(candidate.openai_base_url).hostname == "api.groq.com":
+                        candidate.groq_api_key = clean_key
+                    else:
+                        candidate.openai_api_key = clean_key
             model = kwargs.get({"gemini": "gemini_model", "openai": "openai_model", "ollama": "ollama_model"}.get(llm_provider, ""))
-            choice, provider = make_llm(self.settings, self.llm_executor, provider=llm_provider, model=model)
-            spec = {"provider": choice, "model": model or provider.model_name}
+            choice, provider = make_llm(candidate, self.llm_executor, provider=llm_provider, model=model)
+            default_model = {"gemini": candidate.gemini_model, "openai": candidate.openai_model,
+                             "ollama": candidate.ollama_model, "local": provider.model_name}[choice]
+            spec = {"provider": choice, "model": model or default_model}
             self.catalog.set_setting("llm_profile", spec)
+            self.settings = candidate
+            self._llm_cache.clear()
             self.active_provider_name, self.llm_provider = choice, provider
 
     def dispatch_once(self):

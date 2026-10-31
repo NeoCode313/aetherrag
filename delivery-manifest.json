@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "purpose": "Private technical evaluation",
-  "provenance": "Tracked working-tree snapshot; original Git history excluded",
+  "purpose": "Private technical evaluation and deployment",
+  "provenance": "Allowlisted working-tree snapshot; private source history excluded",
   "files": [
     {
       "path": ".dockerignore",
-      "sha256": "e3ad1fe47883f78db62991cda61236d1668c73e3ddc73c9f6d3672481309921f",
-      "bytes": 230
+      "sha256": "0dad3d336759d52353d45a8962664c44fdf5a9d5b152a2651f821b4f69809b03",
+      "bytes": 237
     },
     {
       "path": ".env.example",
@@ -25,8 +25,8 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "d243509d17abe7537a7bc8edc2e7b7620df2c22fe7b0ebc9ab4f1d1bf1b72cbe",
-      "bytes": 478
+      "sha256": "32c324507625a7941686e7c3d25728e8c26510a526f494a6c76be04e6da36be5",
+      "bytes": 496
     },
     {
       "path": "Caddyfile",
@@ -40,8 +40,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "3ae4707be2438f695735677a8f7692e5558baf00654cf4b46293dd693c562f6c",
-      "bytes": 6866
+      "sha256": "8343386f2793fcfee4a74c13f2a48de0b4b8b10b741a9c4a08758793506cb10e",
+      "bytes": 7211
     },
     {
       "path": "backend/app/__init__.py",
@@ -115,8 +115,8 @@
     },
     {
       "path": "backend/app/domain/exceptions.py",
-      "sha256": "00c18498c24f0d6937ec8a8df60de186aabccab7a3ce1325124a76b2751a5f02",
-      "bytes": 1474
+      "sha256": "675088e91b67d246fad3bd5ce94854f796cb6d994a21ee4da784652ad91bcd34",
+      "bytes": 2146
     },
     {
       "path": "backend/app/domain/ports.py",
@@ -175,13 +175,13 @@
     },
     {
       "path": "backend/app/infrastructure/llm/openai_adapter.py",
-      "sha256": "b8db0159ddaca607fab26ca08464cf1450fa80cce4b019a94c2cade549f13e7f",
-      "bytes": 8862
+      "sha256": "6078192eaf24ca2e7d600f88c6aff0ff333916eeb8b741a8cfcf19a8cafb0c6e",
+      "bytes": 9953
     },
     {
       "path": "backend/app/infrastructure/llm/schemas.py",
-      "sha256": "8bc980f4a1c256be4aa340c92f76d001d6fd85ff09cddc67fc4b648051c50fe6",
-      "bytes": 4576
+      "sha256": "9065c0b81f683ba6b684f89a0011e4a2a8726ca7ced9fe128f48d46374336a92",
+      "bytes": 5162
     },
     {
       "path": "backend/app/infrastructure/logging.py",
@@ -200,8 +200,8 @@
     },
     {
       "path": "backend/app/infrastructure/providers.py",
-      "sha256": "4d0a7ff946fe2b9a08c6a2428333a7fcb8c7a176da078aef213934f17a606228",
-      "bytes": 5524
+      "sha256": "83189b4836a2d3c69c0c5a2a018cbcb0eee01e7c439f1100ec2c6c0bac57e871",
+      "bytes": 5946
     },
     {
       "path": "backend/app/infrastructure/resilience.py",
@@ -245,8 +245,8 @@
     },
     {
       "path": "backend/app/main.py",
-      "sha256": "ff4d39d753f76668b1215417b1d0015b760da59cbea3114a0f52027705a838d4",
-      "bytes": 8045
+      "sha256": "8e6e9732cd89977e265956b6528d07fab2f301d0b7a41f3ae09df473e4f3858d",
+      "bytes": 8345
     },
     {
       "path": "backend/app/presentation/__init__.py",
@@ -260,8 +260,8 @@
     },
     {
       "path": "backend/app/presentation/dependencies.py",
-      "sha256": "e9eea717ca5d06f62d0386cd1b843dcfca4201fda054a264e46db4b50ad490c5",
-      "bytes": 15657
+      "sha256": "fc5e34a981545c9357c3e401da5dff007a52d7ae39b896ccc327a855e6db5cc9",
+      "bytes": 16167
     },
     {
       "path": "backend/app/presentation/routes/__init__.py",
@@ -280,13 +280,13 @@
     },
     {
       "path": "backend/app/presentation/routes/system.py",
-      "sha256": "b59cf063ec556450c6ad8dba0ae8430de293bf8264bb267cbb84d89a7e48e21d",
-      "bytes": 3549
+      "sha256": "efaaf15c19f61db46f9257c1cb560ba40334d5ebfe2543becc2b4a767e01c3d7",
+      "bytes": 3820
     },
     {
       "path": "backend/app/presentation/schemas.py",
-      "sha256": "df72c0106771de2d13d5b7ffb259617bec91016a1b91d787c394b6e2a993fee5",
-      "bytes": 4284
+      "sha256": "38c295431518485bc15f59c111ba0be54b38e1a344dd96642c904da5f46bd720",
+      "bytes": 4390
     },
     {
       "path": "backend/evaluation/independent_manual.template.jsonl",
@@ -327,6 +327,11 @@
       "path": "backend/scripts/change_operator_password.py",
       "sha256": "5cfa3ae08c0f52dc18794e0263775c2ae39405401a61dc916bdeab4e9ec1a901",
       "bytes": 2741
+    },
+    {
+      "path": "backend/scripts/configure_groq.py",
+      "sha256": "87f15caf70ae7d1c592d8585f3928583c04153442e0e2a3c7ce1061ad211a533",
+      "bytes": 2630
     },
     {
       "path": "backend/scripts/evaluate_rag_metrics.py",
@@ -424,6 +429,11 @@
       "bytes": 3961
     },
     {
+      "path": "backend/tests/unit/test_groq_and_docs_regressions.py",
+      "sha256": "9e7625322120417e16b1c24905fe48ea46965e5501ae8e003070974ddd8dfd8a",
+      "bytes": 8017
+    },
+    {
       "path": "backend/tests/unit/test_layout_chunker_and_hybrid_ranker.py",
       "sha256": "792adc37740608022f024e24c9d07fb66e3b200a7129031822997abcdeee1149",
       "bytes": 4026
@@ -464,24 +474,44 @@
       "bytes": 5890
     },
     {
+      "path": "docs/DEPLOYMENT.md",
+      "sha256": "c134d5893ad38b1b10797704baaba121884328a2de9a3af6ee8c205419d4ddc5",
+      "bytes": 5515
+    },
+    {
+      "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
+      "sha256": "5354bba0cc1adffe096ec0e02353c0b4efaf9a918be505ec37db90f93996fa8a",
+      "bytes": 6041
+    },
+    {
+      "path": "frontend/api-docs-init.js",
+      "sha256": "d387d0844addd2581f39805f7d4efb8a1bca0d1b6bb16fec085cd1b33dde81a1",
+      "bytes": 1115
+    },
+    {
+      "path": "frontend/api-docs.html",
+      "sha256": "f9c6984e917e7e6f1ecd23b242d93d190793fb9561e47b23147acb685da04e24",
+      "bytes": 435
+    },
+    {
       "path": "frontend/app.js",
-      "sha256": "e459a54b09aab67740e03210050d25439c114ba7e16715a87a5d45ee6c9c471c",
-      "bytes": 36081
+      "sha256": "14195625b994f4c13c582e4fc8ce81802319228a2ecd392d0a7b56c2817285d5",
+      "bytes": 46730
     },
     {
       "path": "frontend/index.html",
-      "sha256": "f4afe8c335aa0c66c2d79e8a436af6df10b14748dddec4633d86fe0767b2b049",
-      "bytes": 23272
+      "sha256": "22b42d270e8954b573676c7a33873e1cf624e1bb7eda42601b44614f78eab8b9",
+      "bytes": 24803
     },
     {
       "path": "frontend/styles.css",
-      "sha256": "f60af00b29d443c6764aa9b6f7f89d83001acd500163177e5fd358616bcc808b",
-      "bytes": 74572
+      "sha256": "8de2c80de3735112882557e0992222b3ff531f8cc352e76e8c8c6c41816d6a2d",
+      "bytes": 86365
     },
     {
       "path": "frontend/tests/workbench.spec.cjs",
-      "sha256": "6f1361753a58396d5da8a822334a997157b40d8708e05612d50332e7e5853b41",
-      "bytes": 10465
+      "sha256": "d968bf989691a17a760e0c84b1285287b8bee9ab330e84881a7e33a76feb4e59",
+      "bytes": 13419
     },
     {
       "path": "frontend/vendor/dompurify-3.4.17.js",
@@ -495,8 +525,8 @@
     },
     {
       "path": "frontend/vendor/manifest.json",
-      "sha256": "27b1e7d07f84eca78d0bfefd0be2e6d1ae76ab4ffb2354f8892e8105aa02d785",
-      "bytes": 471
+      "sha256": "981356172067152f53f581d1fa569165fe71c714761e4adaff94af537e41b7af",
+      "bytes": 1147
     },
     {
       "path": "frontend/vendor/marked-18.1.2.js",
@@ -507,6 +537,31 @@
       "path": "frontend/vendor/marked-LICENSE.txt",
       "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
       "bytes": 2942
+    },
+    {
+      "path": "frontend/vendor/swagger-ui-5.34.1.css",
+      "sha256": "c3cfe8248c4b0b89673600fb829924eafbac6de4bc4b2b06f5f5243483074d0a",
+      "bytes": 187576
+    },
+    {
+      "path": "frontend/vendor/swagger-ui-LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
+      "path": "frontend/vendor/swagger-ui-NOTICE.txt",
+      "sha256": "0d20d1adef18aee3f40dd258172155521ce702ac445cb5f7b7d60ed32dad2fb2",
+      "bytes": 55
+    },
+    {
+      "path": "frontend/vendor/swagger-ui-bundle-5.34.1.js",
+      "sha256": "36eeb4d5640b9c036b1d0f854499af1cceebbdb260b790a03a18be5e8488fbf5",
+      "bytes": 1685697
+    },
+    {
+      "path": "ops/update-server.sh",
+      "sha256": "b8add0c0871c36ef147625224b1f0e13a429d40fe303f9166ce51eb9ba569803",
+      "bytes": 3330
     },
     {
       "path": "pyproject.toml",

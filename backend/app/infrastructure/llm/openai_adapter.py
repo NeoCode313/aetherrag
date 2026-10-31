@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import base64
+import json
 from collections.abc import Sequence
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
 from app.domain.entities import GeneratedAnswer, ImageInput
 from app.domain.ports import EmbeddingProvider, LLMProvider
-from app.domain.exceptions import ProviderError
+from app.domain.exceptions import ProviderError, ProviderContractError
 from app.infrastructure.llm.ollama_adapter import _translate_http_error
 from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer
 from app.infrastructure.resilience import ResilientExecutor
@@ -37,7 +39,7 @@ class OpenAILLMProvider(LLMProvider):
 
     @property
     def _is_groq(self) -> bool:
-        return "groq.com" in self._base_url.lower() or self._api_key.startswith("gsk_")
+        return urlsplit(self._base_url).hostname == "api.groq.com"
 
     @property
     def supports_images(self) -> bool:
@@ -60,6 +62,10 @@ class OpenAILLMProvider(LLMProvider):
     ) -> GeneratedAnswer:
         if images and not self.supports_images:
             raise ProviderError("El perfil OpenAI-compatible no tiene visión habilitada.")
+        system_instruction += (
+            "\nPara referencias textuales E copia quote literalmente del campo text y usa "
+            "span_start=null, span_end=null, visual_region=null. No calcules offsets ni completes citas de memoria. "
+            "Las referencias F solo pueden apuntar a imágenes adjuntas.")
         if images:
             user_content: Any = [{"type": "text", "text": prompt}]
             for img in images:
@@ -74,17 +80,14 @@ class OpenAILLMProvider(LLMProvider):
         else:
             user_content = prompt
 
-        if self._is_groq:
+        strict_groq = self._model in {"openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"}
+        if self._is_groq and not strict_groq:
             resp_fmt: dict[str, Any] = {"type": "json_object"}
             system_instruction = (
                 system_instruction
-                + "\n\nDebes responder EXCLUSIVAMENTE con un objeto JSON válido con estas claves exactas:\n"
-                + '{"answer": "resumen", "abstained": false, "abstention_reason": "", '
-                + '"evidence_coverage": "full", "cited_ids": ["E1"], "used_visual_ids": [], '
-                + '"answer_mode": "grounded_answer", "missing_facets": [], '
-                + '"claims": [{"statement": "afirmación", '
-                + '"evidence_refs": [{"evidence_id": "E1", "quote": "subcadena exacta copiada literalmente del campo text", '
-                + '"span_start": null, "span_end": null, "visual_region": null}]}]}'
+                + "\n\nDevuelve exclusivamente JSON que cumpla este esquema. No agregues explicaciones ni bloques de razonamiento. "
+                + "Cuando falte evidencia, usa abstained=true, evidence_coverage=none y claims=[]; nunca inventes citas.\n"
+                + json.dumps(RAG_ANSWER_JSON_SCHEMA, ensure_ascii=False)
             )
         else:
             resp_fmt = {
@@ -111,20 +114,27 @@ class OpenAILLMProvider(LLMProvider):
         def _invoke() -> GeneratedAnswer:
             try:
                 with httpx.Client(timeout=self._timeout) as client:
-                    resp = client.post(
-                        f"{self._base_url}/chat/completions",
-                        json=payload,
-                        headers=headers,
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    text = data["choices"][0]["message"]["content"]
-                    usage = data.get("usage", {})
-                    return parse_structured_answer(
-                        text,
-                        input_tokens=usage.get("prompt_tokens"),
-                        output_tokens=usage.get("completion_tokens"),
-                    )
+                    request_payload = {**payload, "messages": [dict(message) for message in payload["messages"]]}
+                    # JSON-object mode does not enforce the schema. Allow one bounded
+                    # regeneration, preserving the original evidence and strict validator.
+                    attempts = 2 if self._is_groq and not strict_groq else 1
+                    for attempt in range(attempts):
+                        resp = client.post(f"{self._base_url}/chat/completions", json=request_payload, headers=headers)
+                        resp.raise_for_status()
+                        data = resp.json()
+                        choice = data["choices"][0]
+                        if choice.get("finish_reason") == "length":
+                            raise ProviderContractError("truncated")
+                        usage = data.get("usage", {})
+                        try:
+                            return parse_structured_answer(choice["message"].get("content"),
+                                input_tokens=usage.get("prompt_tokens"), output_tokens=usage.get("completion_tokens"))
+                        except ProviderContractError as error:
+                            if attempt + 1 >= attempts:
+                                raise
+                            request_payload["messages"][0]["content"] += (
+                                "\nEl intento anterior incumplió el esquema. Regenera el objeto completo y respeta tipos, "
+                                "campos y referencias. Diagnóstico: " + str(error))
             except Exception as exc:
                 raise _translate_http_error(exc, provider_label) from exc
 

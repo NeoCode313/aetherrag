@@ -30,6 +30,8 @@ bash start-local.sh
 
 El script construye la imagen, solicita una contraseña propia del evaluador, crea .env con secretos aleatorios y arranca Compose. Un .env existente se conserva. Si algún paso falla, detiene la secuencia.
 
+La documentación interactiva está en https://localhost:8443/docs y usa recursos locales, sin CDN.
+
 Abrir https://localhost:8443 e iniciar sesión con admin y la contraseña elegida. Subir un PDF propio o usar el botón de manual de ejemplo para recorrer el flujo; el ejemplo es sintético. El certificado usa una CA local generada por esa instalación. Para HTTPS sin aviso, configurar su confianza siguiendo la documentación oficial de Caddy: https://caddyserver.com/docs/running#local-https-with-docker . No se incluyen certificados ni claves del autor.
 
 Si el puerto está ocupado, agregar APP_HTTPS_PORT=9443 a .env y volver a iniciar; usar https://localhost:9443. Solo se publica la interfaz en loopback, no las bases de datos.
@@ -110,3 +112,7 @@ Los datasets de regresión están en backend/evaluation. Los informes privados d
 ## Uso y licencia
 
 La entrega se prepara para evaluación privada. No se ha seleccionado una licencia de distribución pública para el código propio. Las licencias de las bibliotecas vendorizadas se conservan en frontend/vendor.
+
+## Actualizaciones desde GitHub
+
+El flujo de publicación y actualización del servidor está en docs/DEPLOYMENT.md. Los secretos y volúmenes no forman parte del repositorio. La guía de cumplimiento está en docs/REQUISITOS_CUMPLIMIENTO.md.

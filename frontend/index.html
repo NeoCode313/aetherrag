@@ -158,18 +158,32 @@
         <div>
           <h1 class="chat-title">Asistente de Consulta Técnica Multimodal</h1>
           <p class="chat-subtitle">
-            Consulta fuentes, fragmentos recuperados y diagramas asociados a cada respuesta
+            Consulta fuentes, fragmentos recuperados, telemetría del modelo y diagramas asociados
           </p>
         </div>
-        <button class="btn btn-ghost" id="btn-clear-chat" title="Limpiar conversación">
-          Limpiar historial
-        </button>
+        <div class="chat-header-actions">
+          <span class="badge-count" id="chat-msg-count" title="Respuestas en la conversación actual">0 respuestas</span>
+          <div class="chat-nav-group" role="group" aria-label="Navegación de mensajes">
+            <button type="button" class="btn btn-xs btn-ghost" id="btn-scroll-top" title="Desplazar al inicio del chat">↑ Inicio</button>
+            <button type="button" class="btn btn-xs btn-ghost" id="btn-prev-msg" title="Ir al mensaje anterior">‹ Ant</button>
+            <button type="button" class="btn btn-xs btn-ghost" id="btn-next-msg" title="Ir al mensaje siguiente">Sig ›</button>
+            <button type="button" class="btn btn-xs btn-ghost" id="btn-scroll-bottom" title="Desplazar al final del chat">↓ Final</button>
+          </div>
+          <button class="btn btn-ghost" id="btn-clear-chat" title="Limpiar conversación">
+            Limpiar historial
+          </button>
+        </div>
       </div>
 
       <!-- Quick Sample Questions -->
-      <div class="quick-prompts">
-        <div class="quick-prompts-label">Preguntas de prueba recomendadas (1 clic):</div>
-        <div class="quick-prompts-grid">
+      <div class="quick-prompts" id="quick-prompts">
+        <div class="quick-prompts-top">
+          <div class="quick-prompts-label">Preguntas de prueba recomendadas (1 clic):</div>
+          <button type="button" class="btn btn-xs btn-ghost" id="btn-toggle-prompts" aria-expanded="true">
+            Ocultar sugerencias ▴
+          </button>
+        </div>
+        <div class="quick-prompts-grid" id="quick-prompts-grid">
           <button class="prompt-chip" data-query="¿Cuáles son los componentes numerados del corte de la turbina en la Figura 1 y cuál es su potencia y salto nominal en la Tabla 1?">
             <span class="chip-tag">Figura 1 + Tabla 1</span>
             Corte isométrico turbina HX-900 y potencia nominal
@@ -190,7 +204,7 @@
       </div>
 
       <!-- Conversation Stream -->
-      <div class="chat-stream" id="chat-stream">
+      <div class="chat-stream" id="chat-stream" tabindex="0" aria-label="Historial de conversación y respuestas">
         <div class="welcome-card">
           <div class="welcome-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -206,6 +220,11 @@
           </p>
         </div>
       </div>
+
+      <!-- Floating Jump-to-Latest Pill when scrolled up -->
+      <button type="button" class="chat-jump-latest hidden" id="btn-jump-latest" title="Volver al final de la conversación">
+        <span>↓ Ir al último mensaje</span>
+      </button>
 
       <!-- Minimalist Operational Status Banner (Working / Latency Warning / Problem Alert) -->
       <div class="live-ops-banner hidden" id="live-ops-banner" data-state="idle" role="status" aria-live="polite">
@@ -354,6 +373,7 @@
         <div><h3 id="settings-title">Generador de respuestas</h3>
           <p>Selecciona un proveedor ya configurado por el administrador.</p>
           <p id="embedding-model-note">El proveedor de embeddings permanece fijo para conservar la compatibilidad del índice.</p>
+          <p id="provider-config-note">Las claves y endpoints se configuran de forma privada en el servidor.</p>
         </div>
         <button type="button" class="btn btn-icon" id="btn-close-settings">✕</button>
       </div>

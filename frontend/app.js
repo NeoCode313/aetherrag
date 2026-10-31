@@ -5,6 +5,7 @@ const state = {
   activeVisual: null, relatedVisuals: [], activeCitations: [], activeView: "crop",
   pollingTimer: null, pollingGeneration: 0, opsTimer: null, opsStartMs: 0,
   activeAbortController: null, operationSeq: 0, csrfToken: "", user: null,
+  credentialsEditable: false,
 };
 const nativeFetch = window.fetch.bind(window);
 const byId = (id) => document.getElementById(id);
@@ -71,15 +72,19 @@ async function restoreSession() {
 
 function setVisualOpsState(mode, label) {
   ["global-activity-bar", "pill-activity", "live-ops-banner"].forEach((id) => byId(id).setAttribute("data-state", mode));
+  document.querySelectorAll(".thinking-inline").forEach((el) => {
+    el.setAttribute("data-state", mode);
+    el.closest(".msg-assistant")?.setAttribute("data-ops-state", mode);
+  });
   byId("label-activity").textContent = label;
   byId("timer-activity").classList.toggle("hidden", mode === "idle");
   byId("btn-cancel-ops").classList.toggle("hidden", !["working", "warning"].includes(mode));
 }
 
-function startOpsMonitor(title, detail = "Solicitud enviada. Esperando respuesta del servidor…") {
+function startOpsMonitor(title, detail = "Recuperación híbrida RRF (vectores densos + BM25)…") {
   clearInterval(state.opsTimer);
   state.opsStartMs = performance.now();
-  setVisualOpsState("working", "ESPERANDO");
+  setVisualOpsState("working", "PROCESANDO");
   byId("live-ops-banner").classList.remove("hidden");
   byId("btn-dismiss-ops").classList.add("hidden");
   updateOpsBannerText(title, detail);
@@ -88,8 +93,17 @@ function startOpsMonitor(title, detail = "Solicitud enviada. Esperando respuesta
     const elapsed = `${seconds.toFixed(1)}s`;
     byId("live-ops-elapsed").textContent = elapsed;
     byId("timer-activity").textContent = elapsed;
-    document.querySelectorAll(".thinking-stage-text").forEach((el) => { el.textContent = `Esperando respuesta del servidor… (${elapsed})`; });
-    if (seconds >= 8) setVisualOpsState("warning", "ESPERA PROLONGADA");
+    const stageMsg = seconds < 1.4
+      ? "Recuperación híbrida RRF (vectores densos + BM25)…"
+      : seconds < 6.0
+        ? "Sintetizando respuesta y verificando citas con el modelo…"
+        : "Espera prolongada · Generando salida estructurada del modelo…";
+    document.querySelectorAll(".thinking-stage-text").forEach((el) => { el.textContent = stageMsg; });
+    document.querySelectorAll(".thinking-elapsed-pill").forEach((el) => { el.textContent = elapsed; });
+    if (seconds >= 6.0 && byId("live-ops-banner").getAttribute("data-state") === "working") {
+      setVisualOpsState("warning", "ESPERA PROLONGADA");
+      updateOpsBannerText(title, "Latencia extendida del proveedor · Verificando consistencia…");
+    }
   }, 100);
 }
 
@@ -147,13 +161,27 @@ async function refreshSystemStatus() {
   const response = await apiFetch("/api/v1/system/status");
   if (!response.ok) return;
   const data = await response.json();
+  state.credentialsEditable = data.credentials_editable === true;
+  for (const id of ["input-gemini-token", "input-openai-token", "input-openai-endpoint", "input-ollama-endpoint"]) {
+    byId(id).disabled = !state.credentialsEditable;
+    if (!state.credentialsEditable) {
+      byId(id).value = "";
+      byId(id).placeholder = "Configurado de forma privada en el servidor";
+    }
+  }
+  byId("provider-config-note").textContent = state.credentialsEditable
+    ? "Desarrollo: claves en memoria; configura .env para conservarlas tras reiniciar."
+    : "Servidor: claves y endpoints se configuran en .env y requieren recrear API/worker. Aquí solo eliges proveedor y modelo.";
+  byId("btn-preset-groq-qwen").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
+  byId("btn-preset-groq").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
+  byId("btn-preset-openai").disabled = !state.credentialsEditable && data.openai_backend !== "openai";
   byId("label-provider").textContent = `${String(data.llm_provider).toUpperCase()} · ${data.llm_model}`;
   byId("dot-provider").className = "status-dot ok";
   byId("label-vector").textContent = `${data.vector_backend} (${data.total_chunks} chunks)`;
   byId("label-cb").textContent = String(data.circuit_breaker_state).toUpperCase();
   byId("dot-cb").className = `status-dot ${data.circuit_breaker_state === "closed" ? "ok" : "err"}`;
   byId("embedding-model-note").textContent = `Embeddings fijos: ${data.embedding_model}. Cambiar el generador no modifica el índice.`;
-  const cleanModel = String(data.llm_model || "").replace(/^(openai|gemini|ollama)\//, "");
+  const cleanModel = String(data.llm_model || "").replace(/^(openai|groq|gemini|ollama)\//, "");
   if (data.llm_provider === "openai" && cleanModel) byId("input-openai-model").value = cleanModel;
   else if (data.llm_provider === "gemini" && cleanModel) byId("input-gemini-model").value = cleanModel;
   else if (data.llm_provider === "ollama" && cleanModel) byId("input-ollama-model").value = cleanModel;
@@ -284,22 +312,81 @@ function startJobPolling(jobId, fileName) {
   state.pollingTimer = setTimeout(poll, 0);
 }
 
+function syncChatScrollControls() {
+  const stream = byId("chat-stream");
+  const countBadge = byId("chat-msg-count");
+  const jumpBtn = byId("btn-jump-latest");
+  if (!stream) return;
+  const answers = stream.querySelectorAll(".msg-assistant[data-message-id]");
+  if (countBadge) {
+    const n = answers.length;
+    countBadge.textContent = `${n} ${n === 1 ? "respuesta" : "respuestas"}`;
+  }
+  if (jumpBtn) {
+    const distanceFromBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight;
+    jumpBtn.classList.toggle("hidden", distanceFromBottom <= 72);
+  }
+}
+
+function toggleQuickPrompts(forceCollapse) {
+  const wrap = byId("quick-prompts");
+  const btn = byId("btn-toggle-prompts");
+  if (!wrap || !btn) return;
+  const collapsed = typeof forceCollapse === "boolean" ? forceCollapse : !wrap.classList.contains("collapsed");
+  wrap.classList.toggle("collapsed", collapsed);
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  btn.textContent = collapsed ? "Mostrar sugerencias ▾" : "Ocultar sugerencias ▴";
+}
+
+function scrollToChatEdge(position) {
+  const stream = byId("chat-stream");
+  if (!stream) return;
+  stream.scrollTo({ top: position === "top" ? 0 : stream.scrollHeight, behavior: "smooth" });
+}
+
+function navigateChatMessage(direction) {
+  const stream = byId("chat-stream");
+  if (!stream) return;
+  const cards = Array.from(stream.querySelectorAll(".msg-assistant[data-message-id]"));
+  if (!cards.length) return;
+  let idx = cards.findIndex((el) => el.dataset.messageId === state.activeResponseId);
+  if (idx === -1) idx = direction > 0 ? 0 : cards.length - 1;
+  else idx = Math.max(0, Math.min(cards.length - 1, idx + direction));
+  const target = cards[idx];
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const msgId = target.dataset.messageId;
+  const data = state.responses.get(msgId);
+  if (data) updateRightPanel(data, msgId);
+}
+
 async function submitQuestion(question) {
   const operation = beginOperation("Consulta enviada al servidor");
   const stream = byId("chat-stream");
   stream.querySelector(".welcome-card")?.remove();
+  toggleQuickPrompts(true);
   stream.append(node("div", "msg msg-user", question));
   const message = node("div", "msg msg-assistant");
+  message.setAttribute("data-ops-state", "working");
   const thinking = node("div", "thinking-inline");
-  thinking.append(node("span", "mono thinking-stage-text", "Esperando respuesta del servidor…"));
+  thinking.setAttribute("data-state", "working");
+  const left = node("div", "thinking-inline-left");
+  const bars = node("span", "thinking-bars");
+  bars.setAttribute("aria-hidden", "true");
+  bars.append(node("i"), node("i"), node("i"));
+  left.append(bars, node("span", "mono thinking-stage-text", "Recuperación híbrida RRF (vectores densos + BM25)…"));
+  const right = node("div", "thinking-inline-right");
+  right.append(node("span", "mono thinking-elapsed-pill", "0.0s"));
   const stop = node("button", "thinking-cancel-btn", "Detener espera");
   stop.type = "button";
   stop.addEventListener("click", cancelActiveOperation);
-  thinking.append(stop);
+  right.append(stop);
+  thinking.append(left, right);
   message.append(thinking);
   stream.append(message);
   setSendButtonMode(true);
   stream.scrollTop = stream.scrollHeight;
+  syncChatScrollControls();
   try {
     const response = await apiFetch("/api/v1/chat/query", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -311,6 +398,7 @@ async function submitQuestion(question) {
     state.history.push({ role: "user", content: question.slice(0, 4000) }, { role: "assistant", content: String(data.answer).slice(0, 4000) });
     const messageId = `answer-${++state.messageSeq}`;
     state.responses.set(messageId, data);
+    message.removeAttribute("data-ops-state");
     renderAssistantMessage(message, data, messageId);
     updateRightPanel(data, messageId);
     if (operation.id === state.operationSeq) finishOpsMonitor();
@@ -318,10 +406,17 @@ async function submitQuestion(question) {
   } catch (error) {
     message.replaceChildren();
     if (error.name === "AbortError") {
+      message.removeAttribute("data-ops-state");
       message.append(node("span", "badge-cancelled", "ESPERA DETENIDA"), node("p", "", "Se dejó de esperar en este navegador. La solicitud puede continuar en el servidor."));
       if (!byId("chat-input").value.trim()) byId("chat-input").value = question;
     } else {
-      message.append(node("p", "", String(error)));
+      message.setAttribute("data-ops-state", "error");
+      const errHeader = node("div", "thinking-error-header");
+      errHeader.append(node("span", "thinking-error-dot"), node("span", "badge-error-state mono", "REQUIERE ATENCIÓN"));
+      const retryBtn = node("button", "retry-query-btn", "↻ Reintentar consulta");
+      retryBtn.type = "button";
+      retryBtn.addEventListener("click", () => submitQuestion(question));
+      message.append(errHeader, node("p", "", String(error)), retryBtn);
       if (operation.id === state.operationSeq) reportOpsProblem("La consulta no se completó", String(error));
     }
   } finally {
@@ -330,6 +425,7 @@ async function submitQuestion(question) {
       setSendButtonMode(false);
     }
     stream.scrollTop = stream.scrollHeight;
+    syncChatScrollControls();
   }
 }
 
@@ -401,15 +497,39 @@ function visualStatus(visual, data = state.responses.get(state.activeResponseId)
   return "Relacionada; no enviada al modelo";
 }
 
+function buildMetricPill(label, value, subtext, barRatio = null, tone = "cyan") {
+  const pill = node("div", "metric-pill");
+  pill.append(node("span", "metric-label", label));
+  pill.append(node("strong", "metric-val mono", value));
+  if (barRatio !== null && Number.isFinite(Number(barRatio))) {
+    const track = node("div", "metric-bar-track");
+    const fill = node("div", `metric-bar-fill tone-${tone}`);
+    fill.style.width = `${Math.round(Math.max(0, Math.min(1, Number(barRatio))) * 100)}%`;
+    track.append(fill);
+    pill.append(track);
+  }
+  if (subtext) pill.append(node("span", "metric-sub", subtext));
+  return pill;
+}
+
 function renderAssistantMessage(container, data, messageId) {
   container.replaceChildren();
   container.dataset.messageId = messageId;
   container.classList.toggle("abstained", Boolean(data.abstained));
   const top = node("div", "msg-meta-top");
+  const topLeft = node("div", "msg-meta-left");
   const mode = data.answer_mode === "extractive_evidence" ? "EVIDENCIA EXTRACTIVA · SIN INFERENCIA VISUAL" : "RESPUESTA CON REFERENCIAS";
-  top.append(node("span", data.abstained ? "badge-abstained" : "badge-grounded", data.abstained ? "ABSTENCIÓN" : mode));
-  top.append(node("span", "mono", `${data.model} · ${data.latency_ms} ms · cobertura declarada: ${data.evidence_coverage}`));
+  topLeft.append(node("span", data.abstained ? "badge-abstained" : "badge-grounded", data.abstained ? "ABSTENCIÓN" : mode));
+  topLeft.append(node("span", "mono msg-meta-summary", `${data.model} · ${data.latency_ms} ms · cobertura declarada: ${data.evidence_coverage}`));
+  const topRight = node("div", "msg-meta-right");
+  const inspectBtn = node("button", "msg-inspect-btn", "Inspeccionar →");
+  inspectBtn.type = "button";
+  inspectBtn.title = "Cargar citas y diagramas de esta respuesta en el panel derecho";
+  inspectBtn.addEventListener("click", () => updateRightPanel(data, messageId));
+  topRight.append(inspectBtn);
+  top.append(topLeft, topRight);
   container.append(top, renderMarkdown(data.answer, data.citations || [], messageId));
+
   if (data.primary_visual && !data.abstained) {
     const visual = data.primary_visual;
     const card = node("button", "inline-visual-card");
@@ -423,8 +543,10 @@ function renderAssistantMessage(container, data, messageId) {
     card.addEventListener("click", () => { updateRightPanel(data, messageId); openLightbox(visual.image_url, visual.caption); });
     container.append(card);
   }
+
+  const citations = data.citations || [];
   const sources = node("div", "msg-sources-bar");
-  for (const citation of data.citations || []) {
+  for (const citation of citations) {
     const button = node("button", "source-chip", `[${citation.ref}] ${citation.document_name}, página ${citation.page}`);
     button.type = "button";
     button.dataset.messageId = messageId;
@@ -433,16 +555,111 @@ function renderAssistantMessage(container, data, messageId) {
     sources.append(button);
   }
   container.append(sources);
-  const details = node("details", "operational-scores");
-  details.append(node("summary", "", "Diagnóstico de recuperación (no mide veracidad)"));
+
   const metrics = data.metrics || {};
-  details.append(node("p", "mono", `Coseno: ${numberText(metrics.max_cosine_similarity)} · Léxico: ${numberText(metrics.lexical_score ?? metrics.max_bm25_score)} · RRF: ${numberText(metrics.top_rrf_score, 5)}`));
+  const meta = data.metadata || {};
+  const timings = data.timings_ms || {};
+  const retrievedCount = Number.isFinite(Number(data.retrieved)) ? Number(data.retrieved) : citations.length;
+  const acceptedClaims = meta.accepted_claims ?? citations.length;
+  const rejectedClaims = meta.rejected_claims ?? 0;
+  const retrievalMs = timings.retrieval_ms ?? 0;
+  const generationMs = timings.generation_ms ?? Math.max(0, (Number(data.latency_ms) || 0) - retrievalMs);
+  const totalMs = Number(data.latency_ms) || (retrievalMs + generationMs);
+  const lexicalVal = metrics.lexical_score ?? metrics.max_bm25_score;
+  const imagesSent = metrics.images_sent ?? (meta.sent_asset_ids || []).length;
+
+  const metricsGrid = node("div", "rag-metrics-grid");
+  metricsGrid.setAttribute("aria-label", "Métricas de verificación del modelo y recuperación");
+  metricsGrid.append(
+    buildMetricPill(
+      "COSENO MÁX / MEDIA",
+      `${numberText(metrics.max_cosine_similarity)} · μ=${numberText(metrics.mean_cosine_similarity)}`,
+      "Similitud semántica densa (L2)",
+      metrics.max_cosine_similarity,
+      "cyan",
+    ),
+    buildMetricPill(
+      "SCORE LÉXICO BM25",
+      numberText(lexicalVal),
+      "Coincidencia exacta de tokens",
+      lexicalVal != null ? Math.min(1, Number(lexicalVal) / 8) : null,
+      "emerald",
+    ),
+    buildMetricPill(
+      "FUSIÓN HÍBRIDA RRF",
+      numberText(metrics.top_rrf_score, 5),
+      "Reciprocal Rank Fusion (k=60)",
+      metrics.top_rrf_score != null ? Math.min(1, Number(metrics.top_rrf_score) / 0.033) : null,
+      "indigo",
+    ),
+    buildMetricPill(
+      "SOLAPAMIENTO LÉXICO",
+      numberText(metrics.lexical_overlap_score),
+      "Términos anclados en evidencia",
+      metrics.lexical_overlap_score,
+      "emerald",
+    ),
+    buildMetricPill(
+      "USO DE CONTEXTO",
+      `${citations.length}/${retrievedCount} (${numberText(metrics.context_utilization)})`,
+      "Chunks citados vs recuperados",
+      metrics.context_utilization,
+      "cyan",
+    ),
+    buildMetricPill(
+      "GUARDRAILS CLAIMS",
+      `${acceptedClaims} ok · ${rejectedClaims} filtradas`,
+      `Validez ref: ${numberText(metrics.reference_validity)}`,
+      metrics.reference_validity != null ? metrics.reference_validity : (acceptedClaims > 0 ? 1 : 0),
+      rejectedClaims > 0 ? "amber" : "emerald",
+    ),
+    buildMetricPill(
+      "LATENCIA PIPELINE",
+      `R:${retrievalMs}ms · G:${generationMs}ms`,
+      `Total end-to-end: ${totalMs} ms`,
+      totalMs > 0 ? generationMs / totalMs : 0,
+      "indigo",
+    ),
+    buildMetricPill(
+      "ALINEACIÓN BBOX / VLM",
+      `Prox: ${numberText(metrics.visual_proximity_score)} · ${imagesSent} img`,
+      meta.supports_images ? "Inferencia visual activa" : "Mapeo geométrico BBox",
+      metrics.visual_proximity_score,
+      "cyan",
+    ),
+  );
+  container.append(metricsGrid);
+
+  const details = node("details", "operational-scores");
+  details.append(node("summary", "", "Diagnóstico detallado de recuperación y auditoría del modelo (no mide veracidad)"));
+  details.append(node("p", "mono", `Coseno: ${numberText(metrics.max_cosine_similarity)} · Léxico: ${numberText(lexicalVal)} · RRF: ${numberText(metrics.top_rrf_score, 5)}`));
+  const traceRow = node("div", "audit-trace-row mono");
+  traceRow.textContent = `Checks: ${meta.checks || "references_spans_numeric_consistency"} · Modo: ${data.answer_mode || "grounded_answer"} · Perfil Emb: ${meta.embedding_profile_id || "activo"} · Gen: ${meta.generation_id || "activa"}`;
+  details.append(traceRow);
+
+  if (citations.length) {
+    const tableWrap = node("div", "audit-citations-wrap");
+    for (const c of citations) {
+      const row = node("div", "audit-citation-row mono");
+      row.append(
+        node("span", "audit-cite-ref", `[${c.ref}] ${c.modality || c.kind || "text"}`),
+        node("span", "audit-cite-doc", `${c.document_name} (p.${c.page}) · ${c.section}`),
+        node("span", "audit-cite-scores", `Cos=${numberText(c.dense_score)} · BM25=${numberText(c.sparse_score)} · RRF=${numberText(c.score, 5)} · BBox=${boxText(c.bbox)}`),
+      );
+      tableWrap.append(row);
+    }
+    details.append(tableWrap);
+  }
+
   details.append(node("p", "", "Las referencias y los scores ayudan a inspeccionar la recuperación. La correspondencia semántica de cada afirmación requiere revisión."));
   container.append(details);
 }
 
 function updateRightPanel(data, messageId) {
   state.activeResponseId = messageId;
+  document.querySelectorAll(".msg-assistant[data-message-id]").forEach((el) => {
+    el.classList.toggle("active-inspected", el.dataset.messageId === messageId);
+  });
   state.activeCitations = data.citations || [];
   const visuals = [data.primary_visual, ...(data.related_visuals || [])].filter(Boolean);
   state.relatedVisuals = visuals.filter((v, i) => visuals.findIndex((other) => other.asset_id === v.asset_id && other.image_url === v.image_url) === i);
@@ -596,7 +813,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.activeAbortController) { event.preventDefault(); cancelActiveOperation(); }
   });
   byId("chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (!state.activeAbortController) byId("chat-form").requestSubmit(); } });
-  byId("btn-clear-chat").addEventListener("click", () => { cancelActiveOperation(); state.history = []; state.responses.clear(); byId("chat-stream").replaceChildren(); clearRightInspector(); });
+  byId("btn-clear-chat").addEventListener("click", () => {
+    cancelActiveOperation();
+    state.history = [];
+    state.responses.clear();
+    byId("chat-stream").replaceChildren();
+    toggleQuickPrompts(false);
+    clearRightInspector();
+    syncChatScrollControls();
+  });
+  byId("chat-stream").addEventListener("scroll", syncChatScrollControls, { passive: true });
+  byId("btn-toggle-prompts")?.addEventListener("click", () => toggleQuickPrompts());
+  byId("btn-scroll-top")?.addEventListener("click", () => scrollToChatEdge("top"));
+  byId("btn-scroll-bottom")?.addEventListener("click", () => scrollToChatEdge("bottom"));
+  byId("btn-jump-latest")?.addEventListener("click", () => scrollToChatEdge("bottom"));
+  byId("btn-prev-msg")?.addEventListener("click", () => navigateChatMessage(-1));
+  byId("btn-next-msg")?.addEventListener("click", () => navigateChatMessage(1));
   byId("btn-clear-inspector").addEventListener("click", clearRightInspector);
   byId("btn-clear-citations").addEventListener("click", () => { state.activeCitations = []; renderCitationsList(); });
   byId("btn-cancel-ops").addEventListener("click", cancelActiveOperation);
@@ -626,9 +858,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const provider = document.querySelector('input[name="llm_provider"]:checked').value;
     const payload = { llm_provider: provider };
     if (provider !== "local") payload[`${provider}_model`] = byId(`input-${provider}-model`).value.trim();
-    if (provider === "gemini" && byId("input-gemini-token").value.trim()) payload.gemini_api_key = byId("input-gemini-token").value.trim();
-    if (provider === "ollama" && byId("input-ollama-endpoint").value.trim()) payload.ollama_base_url = byId("input-ollama-endpoint").value.trim();
-    if (provider === "openai") {
+    if (state.credentialsEditable && provider === "gemini" && byId("input-gemini-token").value.trim()) payload.gemini_api_key = byId("input-gemini-token").value.trim();
+    if (state.credentialsEditable && provider === "ollama" && byId("input-ollama-endpoint").value.trim()) payload.ollama_base_url = byId("input-ollama-endpoint").value.trim();
+    if (state.credentialsEditable && provider === "openai") {
       if (byId("input-openai-endpoint").value.trim()) payload.openai_base_url = byId("input-openai-endpoint").value.trim();
       if (byId("input-openai-token").value.trim()) payload.openai_api_key = byId("input-openai-token").value.trim();
     }

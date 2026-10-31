@@ -72,15 +72,21 @@ def make_embedder(profile: dict, settings, executor):
 def make_llm(settings, executor, *, provider=None, model=None):
     choice = provider or settings.llm_provider
     if choice == "auto":
-        choice = "gemini" if settings.gemini_api_key else "openai" if settings.openai_api_key else "local"
+        choice = "gemini" if settings.gemini_api_key else "openai" if settings.openai_api_key or settings.groq_api_key else "local"
     if choice == "gemini":
         if not settings.gemini_api_key:
             raise ValidationError("Configure GEMINI_API_KEY en el servidor")
         result = GeminiLLMProvider(settings.gemini_api_key, executor, model=model or settings.gemini_model, timeout=settings.provider_timeout_seconds)
     elif choice == "openai":
         base_url = validate_endpoint(settings.openai_base_url, settings.provider_allowed_hosts)
-        api_key = (settings.groq_api_key if "groq.com" in base_url.lower() and settings.groq_api_key
-                   else settings.openai_api_key or settings.groq_api_key)
+        if urlsplit(base_url).hostname == "api.groq.com":
+            api_key = settings.groq_api_key or (settings.openai_api_key if settings.openai_api_key.startswith("gsk_") else "")
+            if not api_key:
+                raise ValidationError("Configure GROQ_API_KEY en el servidor para el endpoint de Groq")
+        else:
+            api_key = settings.openai_api_key
+            if settings.groq_api_key and not api_key or api_key.startswith("gsk_"):
+                raise ValidationError("La clave Groq requiere OPENAI_BASE_URL=https://api.groq.com/openai/v1")
         if not api_key:
             raise ValidationError("Configure OPENAI_API_KEY en el servidor")
         result = OpenAILLMProvider(api_key, model or settings.openai_model, executor,

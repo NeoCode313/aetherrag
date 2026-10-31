@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app.domain.entities import EvidenceReference, GeneratedAnswer, GeneratedClaim
-from app.domain.exceptions import ProviderError
+from app.domain.exceptions import ProviderContractError
 
 
 class EvidenceReferenceSchema(BaseModel):
@@ -79,16 +79,26 @@ RAG_ANSWER_JSON_SCHEMA = _strict_json_schema()
 
 def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
                             output_tokens: int | None = None) -> GeneratedAnswer:
-    cleaned = (raw_text or "").strip()
+    if not isinstance(raw_text, str):
+        raise ProviderContractError("invalid_json")
+    cleaned = raw_text.strip()
     # A single enclosing JSON fence is harmless; surrounding prose and think blocks are rejected.
     match = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE)
     if match:
         cleaned = match.group(1)
     try:
         data = json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError, TypeError):
+        raise ProviderContractError("invalid_json") from None
+    try:
         parsed = AnswerSchema.model_validate(data)
-    except (json.JSONDecodeError, ValidationError, ValueError, TypeError) as exc:
-        raise ProviderError("El proveedor devolvió una respuesta que incumple el contrato estructurado.") from exc
+    except ValidationError as exc:
+        # Never echo model text, extra keys, values or Pydantic's input in errors/logs.
+        known = set(AnswerSchema.model_fields) | set(ClaimSchema.model_fields) | set(EvidenceReferenceSchema.model_fields)
+        fields = tuple(dict.fromkeys(".".join(str(part) for part in error["loc"]
+            if isinstance(part, int) or part in known) or "response"
+            for error in exc.errors(include_input=False, include_context=False, include_url=False)))[:6]
+        raise ProviderContractError("schema", fields) from None
     return GeneratedAnswer(
         answer=parsed.answer, abstained=parsed.abstained,
         abstention_reason=parsed.abstention_reason, evidence_coverage=parsed.evidence_coverage,

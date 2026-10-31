@@ -161,3 +161,5 @@ class SystemStatusResponse(BaseModel):
     total_visuals: int
     generation_id: str = ""
     supports_images: bool = False
+    credentials_editable: bool = False
+    openai_backend: Literal["groq", "openai", "custom"] = "custom"
