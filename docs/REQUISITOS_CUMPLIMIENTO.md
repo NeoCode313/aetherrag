@@ -55,7 +55,7 @@ La comprobación de despliegue debe confirmar que /docs incluye /static/api-docs
 
 Las métricas de proximidad, términos, tokens o referencias válidas no son una probabilidad de veracidad. No asignaría 9/10 con la evidencia actual.
 
-La API docs local se verificó después de reiniciar su proceso conservando la carpeta de trabajo: Swagger renderiza 15 operaciones sin errores de navegador. La instalación remota todavía requiere actualizarse. La primera CI detectó una prueba de despliegue con escapes incorrectos en su mock de logging; se corrigió y la nueva ejecución completó ambos trabajos correctamente.
+La API docs local se verificó después de reiniciar su proceso conservando la carpeta de trabajo: Swagger renderiza 15 operaciones sin errores de navegador. La instalación privada también se actualizó mediante el nuevo flujo y /docs se comprobó a través del túnel: HTTP 200, 15 operaciones renderizadas y cero errores de navegador. La primera CI detectó una prueba de despliegue con escapes incorrectos en su mock de logging; se corrigió y la nueva ejecución completó ambos trabajos correctamente.
 
 ## Evidencia remota confirmada
 
@@ -65,6 +65,8 @@ La API docs local se verificó después de reiniciar su proceso conservando la c
 - Stack Docker real: 52 pruebas correctas en 7.32 segundos.
 - Ambos trabajos finalizaron con éxito. Los subconjuntos se solapan; no se suman como 257 pruebas únicas.
 - La CI también ejecutó la evaluación sintética y el smoke de carga. Esas ejecuciones no convierten los casos sintéticos en evidencia independiente ni validan visión real.
-- Esta evidencia corresponde al código de la revisión; no afirma que el servidor privado se haya actualizado automáticamente.
+- La CI acredita el código de esa revisión. Después, el propietario ejecutó el actualizador en su servidor y confirmó el resultado; se verificó por el túnel que Swagger funciona. La actualización permanece explícita, no se instaló un despliegue automático por cada push.
 
 La actualización posterior de esta matriz y de la guía de acceso SSH es exclusivamente documental.
+
+La clave pública del servidor se registró en GitHub exclusivamente con permiso de lectura; la clave privada y el .env no se transfirieron al repositorio.
