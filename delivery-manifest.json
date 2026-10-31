@@ -414,6 +414,11 @@
       "bytes": 18497
     },
     {
+      "path": "backend/tests/unit/test_deployment_script.py",
+      "sha256": "9e337439bf766976f79fb57b3603c493f94eb3ec7c2d6bc6468808fe03405012",
+      "bytes": 3049
+    },
+    {
       "path": "backend/tests/unit/test_evaluation_contract.py",
       "sha256": "6ca2c68b685b668a34274335ef19be17f30474c08cf41bce7e89cb51a7148c42",
       "bytes": 4511
@@ -560,8 +565,8 @@
     },
     {
       "path": "ops/update-server.sh",
-      "sha256": "b8add0c0871c36ef147625224b1f0e13a429d40fe303f9166ce51eb9ba569803",
-      "bytes": 3330
+      "sha256": "352da31da1650c81bcf53c3d5f6c80999290ecd2b465db2bb6930f1d4fc8d2c9",
+      "bytes": 3331
     },
     {
       "path": "pyproject.toml",

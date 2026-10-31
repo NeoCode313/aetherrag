@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Update this application's containers from a clean private clone, preserving runtime data.
-set -euo pipefail
+set -Eeuo pipefail
 umask 077
 [[ $# -ge 2 && $# -le 3 ]] || { echo "Usage: bash ops/update-server.sh CONFIG_DIR PROJECT [REVISION]" >&2; exit 2; }
 SOURCE="$(cd -- "$(dirname -- "$0")/.." && pwd -P)"
