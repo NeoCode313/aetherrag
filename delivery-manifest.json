@@ -480,13 +480,13 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "c134d5893ad38b1b10797704baaba121884328a2de9a3af6ee8c205419d4ddc5",
-      "bytes": 5515
+      "sha256": "42f42f6718bc0e006b88eab193016acfc5f12ed7aef1f05643196d822b4aab8a",
+      "bytes": 5786
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
-      "sha256": "eddf8259165e126374d172242f8eb59ddc01de4b59273e4c055c91e4d6f703cb",
-      "bytes": 6444
+      "sha256": "ee592aad12b3022fe6c82ba451c01a77eda6fd70f06d31a44755e0ca3e1599bc",
+      "bytes": 7382
     },
     {
       "path": "frontend/api-docs-init.js",

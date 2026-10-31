@@ -7,7 +7,7 @@ El repositorio remoto contiene una copia saneada del código. Los secretos, dato
 En el entorno original de desarrollo, el propietario dispone de publish-private.ps1 y de submission/repository, un Git independiente. No se publica el historial privado del proyecto original.
 
 ~~~powershell
-.\publish-private.ps1 -Message "fix: describir el cambio realizado"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish-private.ps1 -Message "fix: describir el cambio realizado"
 ~~~
 
 El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir main. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
@@ -33,11 +33,18 @@ Añadir únicamente el contenido del archivo .pub en GitHub → repositorio → 
 
 Verificar la identidad SSH de GitHub con sus [huellas oficiales](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) al conectar por primera vez. No desactivar StrictHostKeyChecking.
 
-Reemplazar OWNER/REPO por el repositorio privado creado:
+El repositorio privado creado es NeoCode313/aetherrag. Si la nueva clave tiene passphrase, desbloquearla en esa sesión del servidor:
+
+~~~bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/aetherrag-github
+~~~
+
+Clonar y fijar la identidad SSH exclusiva del repositorio:
 
 ~~~bash
 git -c core.sshCommand="ssh -i $HOME/.ssh/aetherrag-github -o IdentitiesOnly=yes" \
-  clone git@github.com:OWNER/REPO.git ~/apps/aetherrag-source
+  clone git@github.com:NeoCode313/aetherrag.git ~/apps/aetherrag-source
 
 git -C ~/apps/aetherrag-source config core.sshCommand \
   "ssh -i $HOME/.ssh/aetherrag-github -o IdentitiesOnly=yes"

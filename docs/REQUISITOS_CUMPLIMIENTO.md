@@ -23,7 +23,7 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 | 15 | Mostrar la imagen pertinente cuando la respuesta depende de ella | Parcial | correlación espacial, figuras y páginas presentes; falta acreditar interpretación visual real independiente y exactitud de la respuesta visual |
 | 16 | Fuente y página explícitas | Cumple | citas y visor enlazados con autorización de assets |
 | 17 | GitHub/GitLab, commits semánticos e historial lógico | Cumple | código publicado en NeoCode313/aetherrag, privado; historial saneado y commits reales de las mejoras |
-| 18 | Compose funcional con backend, frontend y auxiliares en un comando | Parcial | frontend servido por API y servicios orquestados; stack anterior pasó 52 pruebas, pero esta revisión todavía requiere construcción/despliegue real |
+| 18 | Compose funcional con backend, frontend y auxiliares en un comando | Cumple | GitHub Actions construyó esta revisión y ejecutó el stack real: 52 pruebas correctas con PostgreSQL, Redis, Qdrant, Celery, API/frontend y Caddy |
 | 19 | README con diagrama de arquitectura | Cumple | diagrama incluido |
 | 20 | README con decisiones técnicas | Cumple | estrategias y límites explicados |
 | 21 | README con inicialización y pruebas | Cumple | scripts de arranque y comandos de pruebas documentados |
@@ -31,9 +31,9 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 
 ## Resultado al preparar la publicación
 
-16 cumplen, 5 son parciales y 1 está pendiente. Esto no es una puntuación de 15/22: los requisitos no tienen el mismo peso y la fidelidad/visualización son centrales en el reto.
+17 cumplen, 4 son parciales y 1 está pendiente. Esto no es una puntuación de 15/22: los requisitos no tienen el mismo peso y la fidelidad/visualización son centrales en el reto.
 
-La publicación privada del punto 17 quedó confirmada; no se transfirió el historial privado. Construir archivos de Docker o pasar pruebas en memoria no permite cerrar automáticamente el punto 18.
+La publicación privada del punto 17 quedó confirmada; no se transfirió el historial privado. El punto 18 se cerró con la construcción y prueba real de GitHub Actions; no solo con validación estática.
 
 ## API docs: fallo adicional, no requisito literal independiente
 
@@ -48,11 +48,23 @@ La comprobación de despliegue debe confirmar que /docs incluye /static/api-docs
 - Corregir y medir fidelidad técnica; una cita auténtica no demuestra una afirmación correcta.
 - Evaluar recuperación y respuestas sobre familias documentales independientes con embeddings adecuados.
 - Probar un modelo visual real y preguntas cuya solución dependa de los píxeles, con anotaciones independientes.
-- Construir/desplegar esta revisión desde Git y repetir las pruebas reales del stack.
+- Actualizar la instalación privada desde Git; la construcción y prueba real del stack de esta revisión ya pasaron en GitHub Actions.
 - Entregar una demostración accesible sin revelar infraestructura o secretos.
 - Reparar el flujo administrativo de mantenimiento/reindexado ya identificado.
 - No presentar la carga sintética de 100 documentos de una página como prueba de 100 manuales industriales complejos.
 
 Las métricas de proximidad, términos, tokens o referencias válidas no son una probabilidad de veracidad. No asignaría 9/10 con la evidencia actual.
 
-La API docs local se verificó después de reiniciar su proceso conservando la carpeta de trabajo: Swagger renderiza 15 operaciones sin errores de navegador. La instalación remota todavía requiere actualizarse. La primera CI detectó una prueba de despliegue con escapes incorrectos en su mock de logging; se corrigió y se repetirá la CI antes de acreditar el stack nuevo.
+La API docs local se verificó después de reiniciar su proceso conservando la carpeta de trabajo: Swagger renderiza 15 operaciones sin errores de navegador. La instalación remota todavía requiere actualizarse. La primera CI detectó una prueba de despliegue con escapes incorrectos en su mock de logging; se corrigió y la nueva ejecución completó ambos trabajos correctamente.
+
+## Evidencia remota confirmada
+
+[GitHub Actions, ejecución 41247639029](https://github.com/NeoCode313/aetherrag/actions/runs/41247639029), revisión bfe0fed:
+
+- Contratos y suite: 206 casos, 205 correctos, 1 omitido, cero errores/fallos. Incluye PostgreSQL y las tres pruebas Linux del actualizador.
+- Stack Docker real: 52 pruebas correctas en 7.32 segundos.
+- Ambos trabajos finalizaron con éxito. Los subconjuntos se solapan; no se suman como 257 pruebas únicas.
+- La CI también ejecutó la evaluación sintética y el smoke de carga. Esas ejecuciones no convierten los casos sintéticos en evidencia independiente ni validan visión real.
+- Esta evidencia corresponde al código de la revisión; no afirma que el servidor privado se haya actualizado automáticamente.
+
+La actualización posterior de esta matriz y de la guía de acceso SSH es exclusivamente documental.
