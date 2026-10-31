@@ -22,7 +22,7 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 | 14 | Chat, historial y Markdown correcto | Cumple | cliente web y pruebas de navegador, sanitización y procedencia histórica |
 | 15 | Mostrar la imagen pertinente cuando la respuesta depende de ella | Parcial | correlación espacial, figuras y páginas presentes; falta acreditar interpretación visual real independiente y exactitud de la respuesta visual |
 | 16 | Fuente y página explícitas | Cumple | citas y visor enlazados con autorización de assets |
-| 17 | GitHub/GitLab, commits semánticos e historial lógico | Pendiente | copia Git saneada preparada; confirmar publicación y acceso en el resultado de la sesión |
+| 17 | GitHub/GitLab, commits semánticos e historial lógico | Cumple | código publicado en NeoCode313/aetherrag, privado; historial saneado y commits reales de las mejoras |
 | 18 | Compose funcional con backend, frontend y auxiliares en un comando | Parcial | frontend servido por API y servicios orquestados; stack anterior pasó 52 pruebas, pero esta revisión todavía requiere construcción/despliegue real |
 | 19 | README con diagrama de arquitectura | Cumple | diagrama incluido |
 | 20 | README con decisiones técnicas | Cumple | estrategias y límites explicados |
@@ -31,9 +31,9 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 
 ## Resultado al preparar la publicación
 
-15 cumplen, 5 son parciales y 2 están pendientes. Esto no es una puntuación de 15/22: los requisitos no tienen el mismo peso y la fidelidad/visualización son centrales en el reto.
+16 cumplen, 5 son parciales y 1 está pendiente. Esto no es una puntuación de 15/22: los requisitos no tienen el mismo peso y la fidelidad/visualización son centrales en el reto.
 
-Cuando se confirme el repositorio remoto, el punto 17 podrá pasar a cumple. Construir archivos de Docker o pasar pruebas en memoria no permite cerrar automáticamente el punto 18.
+La publicación privada del punto 17 quedó confirmada; no se transfirió el historial privado. Construir archivos de Docker o pasar pruebas en memoria no permite cerrar automáticamente el punto 18.
 
 ## API docs: fallo adicional, no requisito literal independiente
 
@@ -54,3 +54,5 @@ La comprobación de despliegue debe confirmar que /docs incluye /static/api-docs
 - No presentar la carga sintética de 100 documentos de una página como prueba de 100 manuales industriales complejos.
 
 Las métricas de proximidad, términos, tokens o referencias válidas no son una probabilidad de veracidad. No asignaría 9/10 con la evidencia actual.
+
+La API docs local se verificó después de reiniciar su proceso conservando la carpeta de trabajo: Swagger renderiza 15 operaciones sin errores de navegador. La instalación remota todavía requiere actualizarse. La primera CI detectó una prueba de despliegue con escapes incorrectos en su mock de logging; se corrigió y se repetirá la CI antes de acreditar el stack nuevo.
