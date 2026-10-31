@@ -1,0 +1,25 @@
+[project]
+name = "aetherrag-multimodal-engine"
+version = "3.0.0"
+description = "Multimodal PDF RAG with versioned ingestion, hybrid retrieval and explicit evidence validation"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Ingeniería de IA - Prueba Técnica RAG Multimodal" }
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+addopts = "-ra -q"
+
+[tool.coverage.run]
+source = ["backend/app"]
+omit = ["backend/app/infrastructure/tasks/celery_worker.py"]
+
+[tool.ruff]
+line-length = 105
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AetherRAG · Sistema RAG Multimodal de Ingeniería</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <!-- ==================================================================== -->
+  <!-- TOP NAVIGATION & TELEMETRY BAR                                       -->
+  <!-- ==================================================================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          AetherRAG <span class="brand-badge">MULTIMODAL ENGINE v1.0</span>
+        </div>
+        <div class="brand-subtitle">
+          Arquitectura Hexagonal · Búsqueda Híbrida RRF · Correlación Espacial de Bounding Boxes
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button type="button" class="btn btn-glass" id="btn-session">Comprobando sesión…</button>
+      <button type="button" class="btn btn-ghost hidden" id="btn-logout">Cerrar sesión</button>
+      <div class="telemetry-pills">
+        <div class="pill pill-activity" id="pill-activity" data-state="idle" title="Estado operativo en tiempo real del motor">
+          <span class="activity-ring" id="activity-ring" aria-hidden="true"></span>
+          <span class="pill-label">Estado:</span>
+          <strong id="label-activity">LISTO</strong>
+          <span class="mono activity-timer hidden" id="timer-activity">0.0s</span>
+        </div>
+        <div class="pill" id="pill-provider" title="Proveedor LLM activo (Inyección de Dependencias)">
+          <span class="status-dot" id="dot-provider"></span>
+          <span class="pill-label">LLM:</span>
+          <strong id="label-provider">Cargando…</strong>
+        </div>
+        <div class="pill" id="pill-vector" title="Base de Datos Vectorial Híbrida (Dense + BM25)">
+          <span class="status-dot ok"></span>
+          <span class="pill-label">Vector DB:</span>
+          <strong id="label-vector">Qdrant RRF</strong>
+        </div>
+        <div class="pill" id="pill-cb" title="Estado del Circuit Breaker de resiliencia">
+          <span class="status-dot ok" id="dot-cb"></span>
+          <span class="pill-label">Circuit Breaker:</span>
+          <strong id="label-cb">CLOSED</strong>
+        </div>
+      </div>
+
+      <button class="btn btn-glass" id="btn-open-settings" title="Cambiar entre Gemini, Ollama u OpenAI sin tocar la lógica core">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Proveedor IA (Gemini / Ollama)</span>
+      </button>
+
+      <a class="btn btn-icon" href="/docs" target="_blank" rel="noopener" title="Documentación OpenAPI / Swagger">
+        <span>API Docs</span>
+      </a>
+
+      <button class="btn btn-icon" id="btn-theme-toggle" title="Alternar tema Oscuro / Claro">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+  <div class="global-activity-bar" id="global-activity-bar" data-state="idle" aria-hidden="true">
+    <div class="global-activity-bar-fill"></div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- 3-COLUMN WORKBENCH                                                   -->
+  <!-- ==================================================================== -->
+  <main class="workbench">
+    <!-- LEFT COLUMN: ASYNC INGESTION & CORPUS -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Ingesta Asíncrona</h2>
+          <p class="panel-subtitle">Extracción de texto, tablas, figuras y BBoxes</p>
+        </div>
+        <span class="badge-count" id="doc-count-badge">0 PDFs</span>
+      </div>
+
+      <!-- Dropzone -->
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+        <div class="dropzone-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div class="dropzone-title">Arrastra un manual PDF o haz clic</div>
+        <div class="dropzone-hint">No bloqueante (HTTP 202 + job_id) · Deduplicación SHA-256</div>
+      </div>
+
+      <button class="btn btn-secondary btn-full" id="btn-seed-demo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span>Cargar / Re-indexar Manual HX-900 Demo</span>
+      </button>
+
+      <!-- Live Job Tracker -->
+      <div class="job-tracker hidden" id="job-tracker">
+        <div class="job-tracker-top">
+          <span class="mono job-id-tag" id="job-id-label">job_...</span>
+          <span class="job-status-pill" id="job-status-pill">PROCESSING</span>
+        </div>
+        <div class="job-filename" id="job-filename">Manual_Turbina_HX900.pdf</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="job-progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="job-meta-row">
+          <span id="job-stage-message">En cola…</span>
+          <strong class="mono" id="job-progress-pct">0%</strong>
+        </div>
+      </div>
+
+      <!-- Corpus List -->
+      <div class="section-divider">
+        <span>CORPUS DOCUMENTAL INDEXADO</span>
+      </div>
+      <div class="doc-list" id="doc-list">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Architecture Guarantees Footer -->
+      <div class="arch-card">
+        <div class="arch-card-title">Herramientas de inspección</div>
+        <ul class="arch-list">
+          <li><span class="dot-cyan"></span><strong>Layout:</strong> Tablas por filas y contexto de sección</li>
+          <li><span class="dot-emerald"></span><strong>Fusión Híbrida RRF:</strong> Coseno denso + BM25 léxico ($k=60$)</li>
+          <li><span class="dot-amber"></span><strong>Referencias:</strong> Validación de identificadores y abstención</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- CENTER COLUMN: MULTIMODAL CHAT -->
+    <section class="panel panel-center">
+      <div class="chat-header">
+        <div>
+          <h1 class="chat-title">Asistente de Consulta Técnica Multimodal</h1>
+          <p class="chat-subtitle">
+            Consulta fuentes, fragmentos recuperados y diagramas asociados a cada respuesta
+          </p>
+        </div>
+        <button class="btn btn-ghost" id="btn-clear-chat" title="Limpiar conversación">
+          Limpiar historial
+        </button>
+      </div>
+
+      <!-- Quick Sample Questions -->
+      <div class="quick-prompts">
+        <div class="quick-prompts-label">Preguntas de prueba recomendadas (1 clic):</div>
+        <div class="quick-prompts-grid">
+          <button class="prompt-chip" data-query="¿Cuáles son los componentes numerados del corte de la turbina en la Figura 1 y cuál es su potencia y salto nominal en la Tabla 1?">
+            <span class="chip-tag">Figura 1 + Tabla 1</span>
+            Corte isométrico turbina HX-900 y potencia nominal
+          </button>
+          <button class="prompt-chip" data-query="¿Dónde se ubica la sonda RTD ST-104 en el cojinete guía (Figura 2) y a qué temperaturas se activan AL-TEMP-01 y el disparo TRIP-TEMP-02?">
+            <span class="chip-tag">Figura 2 + Sensor ST-104</span>
+            Cojinete hidrodinámico y umbrales térmicos
+          </button>
+          <button class="prompt-chip" data-query="¿Qué significa el código de falla E-409 en el acumulador AC-301, qué componentes intervienen en la Figura 3 y cuál es la acción correctiva?">
+            <span class="chip-tag">Figura 3 + Código Exacto E-409</span>
+            Esquema oleohidráulico y matriz de fallas
+          </button>
+          <button class="prompt-chip" data-query="¿Cuál es el procedimiento de calibración del reactor criogénico espacial modelo ZX-9990?">
+            <span class="chip-tag chip-warn">Prueba Anti-Alucinación</span>
+            Pregunta fuera de dominio (Abstención Defensiva)
+          </button>
+        </div>
+      </div>
+
+      <!-- Conversation Stream -->
+      <div class="chat-stream" id="chat-stream">
+        <div class="welcome-card">
+          <div class="welcome-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </div>
+          <h3>Sistema RAG Multimodal Listo</h3>
+          <p>
+            Carga un manual PDF o el ejemplo <strong>Manual_Turbina_HX900.pdf</strong> y espera a que termine
+            su ingesta. Las referencias de cada respuesta permiten inspeccionar la fuente y su página.
+          </p>
+        </div>
+      </div>
+
+      <!-- Minimalist Operational Status Banner (Working / Latency Warning / Problem Alert) -->
+      <div class="live-ops-banner hidden" id="live-ops-banner" data-state="idle" role="status" aria-live="polite">
+        <div class="live-ops-left">
+          <span class="live-ops-spinner" aria-hidden="true"></span>
+          <div class="live-ops-text">
+            <strong id="live-ops-title">Procesando solicitud…</strong>
+            <span id="live-ops-detail">Ejecutando pipeline multimodal…</span>
+          </div>
+        </div>
+        <div class="live-ops-right">
+          <span class="mono live-ops-elapsed" id="live-ops-elapsed">0.0s</span>
+          <button type="button" class="live-ops-cancel hidden" id="btn-cancel-ops" title="Cancelar operación en curso (Tecla Esc)">
+            <span class="cancel-dot" aria-hidden="true"></span>
+            <span>Detener espera</span>
+          </button>
+          <button type="button" class="live-ops-dismiss hidden" id="btn-dismiss-ops" title="Ocultar aviso">✕</button>
+        </div>
+      </div>
+
+      <!-- Chat Input Form -->
+      <form class="chat-composer" id="chat-form">
+        <div class="composer-box">
+          <textarea
+            id="chat-input"
+            maxlength="2500"
+            rows="2"
+            placeholder="Pregunta sobre diagramas, tablas, códigos de falla (ej. E-409, ST-104) o especificaciones…"
+            required
+          ></textarea>
+          <button type="submit" class="btn btn-primary" id="btn-send">
+            <span>Consultar RAG</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- RIGHT COLUMN: INTEGRATED VISUAL CONTEXT & SPATIAL BBOX INSPECTOR -->
+    <aside class="panel panel-right">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Contexto Visual Integrado</h2>
+          <p class="panel-subtitle">Inferencia visual y mapeo geométrico en página</p>
+        </div>
+        <div class="inspector-header-actions">
+          <div class="view-tabs" id="visual-view-tabs">
+            <button class="tab-btn active" data-view="crop" id="tab-crop">Diagrama</button>
+            <button class="tab-btn" data-view="page" id="tab-page">Mapeo BBox</button>
+          </div>
+          <button
+            type="button"
+            class="btn-clear-inspector"
+            id="btn-clear-inspector"
+            title="Limpiar diagrama, coordenadas y lista de citas del inspector"
+          >
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- Visual Stage -->
+      <div class="visual-stage" id="visual-stage">
+        <div class="visual-empty" id="visual-empty">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <h4>Inspector Espacial de Diagramas</h4>
+          <p>
+            Cuando una respuesta utilice información asociada a un esquema, figura o tabla,
+            aquí se renderizará automáticamente la <strong>imagen más cercana al texto relevante</strong>
+            junto con su superposición de coordenadas <em>bounding box</em> sobre la página original.
+          </p>
+        </div>
+
+        <!-- Active Visual Content -->
+        <div class="visual-content hidden" id="visual-content">
+          <!-- Mode 1: High-Res Cropped Diagram -->
+          <div class="canvas-wrap" id="view-crop-wrap">
+            <img id="visual-crop-img" alt="Diagrama técnico correlacionado" />
+            <button class="zoom-btn" id="btn-zoom-image" title="Ampliar diagrama en pantalla completa">
+              Ampliar HD
+            </button>
+          </div>
+
+          <!-- Mode 2: Full Page with Interactive SVG Bounding Boxes -->
+          <div class="canvas-wrap hidden" id="view-page-wrap">
+            <div class="page-overlay-container" id="page-overlay-container">
+              <img id="visual-page-img" alt="Página original del PDF con Bounding Boxes" />
+              <svg class="bbox-svg" id="bbox-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+            </div>
+            <div class="bbox-legend">
+              <span><i class="legend-box emerald"></i> BBox Diagrama (<code id="legend-fig-bbox">...</code>)</span>
+              <span><i class="legend-box cyan"></i> BBox Chunk Citado (<code id="legend-txt-bbox">...</code>)</span>
+            </div>
+          </div>
+
+          <!-- Visual Metadata Card -->
+          <div class="visual-meta-card">
+            <div class="visual-meta-header">
+              <span class="source-pill" id="vis-source-pill">Fuente: Manual_Turbina_HX900.pdf, Página 1</span>
+              <span class="distance-pill mono" id="vis-distance-pill">d_bbox = 0.000</span>
+            </div>
+            <div class="visual-caption" id="vis-caption">—</div>
+            <div class="visual-coords mono" id="vis-coords">BBox Normalizado: [0.00, 0.00, 0.00, 0.00]</div>
+          </div>
+
+          <!-- Related Visuals Thumbnails -->
+          <div class="related-strip" id="related-strip"></div>
+        </div>
+      </div>
+
+      <!-- Citations & Provenance Inspector -->
+      <div class="section-divider section-divider-row">
+        <span>METADATOS Y TRAZABILIDAD DE CITAS</span>
+        <div class="citations-toolbar">
+          <span class="badge-count" id="citations-count-badge">0 citas</span>
+          <button
+            type="button"
+            class="btn-clear-citations hidden"
+            id="btn-clear-citations"
+            title="Vaciar metadatos y citas acumuladas"
+          >
+            ✕ Limpiar citas
+          </button>
+        </div>
+      </div>
+      <div class="citations-list" id="citations-list">
+        <div class="citations-placeholder">
+          Las referencias exactas de documento, página, sección, <em>score</em> RRF y coordenadas
+          aparecerán aquí tras cada consulta.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Provider models are selected here; credentials and endpoints stay server-side. -->
+  <div class="modal-backdrop hidden" id="settings-modal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal-header">
+        <div><h3 id="settings-title">Generador de respuestas</h3>
+          <p>Selecciona un proveedor ya configurado por el administrador.</p>
+          <p id="embedding-model-note">El proveedor de embeddings permanece fijo para conservar la compatibilidad del índice.</p>
+        </div>
+        <button type="button" class="btn btn-icon" id="btn-close-settings">✕</button>
+      </div>
+      <form id="provider-form" class="provider-form">
+        <div class="provider-selector">
+          <label class="provider-option"><input type="radio" name="llm_provider" value="gemini" checked />
+            <div class="provider-box"><strong>Google Gemini</strong><span>Credenciales configuradas en el servidor</span></div></label>
+          <label class="provider-option"><input type="radio" name="llm_provider" value="ollama" />
+            <div class="provider-box"><strong>Ollama</strong><span>Servidor local configurado por el administrador</span></div></label>
+          <label class="provider-option"><input type="radio" name="llm_provider" value="openai" />
+            <div class="provider-box"><strong>OpenAI / Compatible</strong><span>Endpoint y credenciales del servidor</span></div></label>
+          <label class="provider-option"><input type="radio" name="llm_provider" value="local" />
+            <div class="provider-box"><strong>Evidencia extractiva local</strong><span>Sin generación ni interpretación visual</span></div></label>
+        </div>
+        <div class="provider-fields" id="fields-gemini">
+          <label class="field-label" for="input-gemini-token">API Key de Gemini (opcional si ya está en .env)</label>
+          <input type="password" id="input-gemini-token" class="text-input mono" autocomplete="off" placeholder="Pegar AIzaSy... (se envía al servidor y se limpia del navegador)" />
+          <label class="field-label" for="input-gemini-model">Modelo Gemini autorizado</label>
+          <input type="text" id="input-gemini-model" class="text-input mono" value="gemini-3.8-flash" />
+        </div>
+        <div class="provider-fields hidden" id="fields-ollama">
+          <label class="field-label" for="input-ollama-endpoint">Endpoint Ollama autorizado</label>
+          <input type="text" id="input-ollama-endpoint" class="text-input mono" value="http://localhost:11434" />
+          <label class="field-label" for="input-ollama-model">Modelo Ollama autorizado</label>
+          <input type="text" id="input-ollama-model" class="text-input mono" value="qwen2.5:7b" />
+        </div>
+        <div class="provider-fields hidden" id="fields-openai">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap">
+            <label class="field-label" for="input-openai-endpoint">Endpoint compatible autorizado (Groq / OpenAI)</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq-qwen">⚡ Groq (Qwen 3.8 27B)</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq">⚡ Groq (Llama 3.3 70B)</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-openai">🌐 OpenAI Oficial</button>
+            </div>
+          </div>
+          <input type="text" id="input-openai-endpoint" class="text-input mono" value="https://api.groq.com/openai/v1" />
+          <label class="field-label" for="input-openai-token">API Key (Groq gsk_... u OpenAI sk-..., opcional si ya está en .env)</label>
+          <input type="password" id="input-openai-token" class="text-input mono" autocomplete="off" placeholder="Pegar gsk_... o sk-... (se aplica en el servidor y se limpia del navegador)" />
+          <label class="field-label" for="input-openai-model">Modelo OpenAI / Compatible autorizado</label>
+          <input type="text" id="input-openai-model" class="text-input mono" value="qwen/qwen3.8-27b" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-settings">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Aplicar generador</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="login-modal">
+    <div class="modal-card login-card" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <div class="modal-header">
+        <div>
+          <h3 id="login-title">Acceso al espacio documental</h3>
+          <p id="login-message" role="status">Inicia sesión.</p>
+        </div>
+        <button type="button" class="btn btn-icon" id="btn-close-login" aria-label="Cerrar ventana de acceso" title="Cerrar (Esc)">✕</button>
+      </div>
+      <form id="login-form" class="modal-body login-form">
+        <label class="field-label" for="login-username">Usuario</label>
+        <input id="login-username" class="text-input" autocomplete="username" required />
+        <label class="field-label" for="login-password">Contraseña</label>
+        <input id="login-password" class="text-input" type="password" autocomplete="current-password" required />
+        <div class="modal-footer">
+          <button id="btn-cancel-login" class="btn btn-ghost" type="button">Cerrar</button>
+          <button id="btn-login" class="btn btn-primary" type="submit">Iniciar sesión</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Fullscreen Image Lightbox -->
+  <div class="modal-backdrop hidden" id="lightbox-modal">
+    <div class="lightbox-inner">
+      <button class="btn btn-icon lightbox-close" id="btn-close-lightbox">✕ Cerrar</button>
+      <img id="lightbox-img" alt="Vista ampliada del diagrama" />
+      <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <script src="/static/vendor/marked-18.1.2.js"></script>
+  <script src="/static/vendor/dompurify-3.4.17.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
