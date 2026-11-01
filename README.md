@@ -79,7 +79,13 @@ flowchart LR
 
 ## Modelos y secretos
 
-El modo predeterminado local no consume APIs: usa embeddings aproximados y devuelve extractos literales. No interpreta píxeles. Los adaptadores Gemini/OpenAI compatible/Ollama están disponibles para usar las credenciales y modelos del evaluador, configurados en su .env.
+El modo predeterminado local no consume APIs: usa embeddings aproximados y devuelve extractos literales. No interpreta píxeles. Los adaptadores Gemini GenerateContent, Anthropic Messages, Ollama nativo y Chat Completions compatible (OpenAI, Groq, xAI, LM Studio y vLLM) permiten usar las credenciales y modelos del evaluador.
+
+El propietario configura proveedor, modelo, endpoint y clave desde Generador de respuestas. Las claves se limpian del formulario y se guardan en el volumen privado; no se devuelven por la API ni se incluyen en Git. Probar el proveedor guardado comprueba conexión y contrato con datos sintéticos, sin enviar PDFs. Puede consumir cuota de la cuenta elegida.
+
+Usa la URL base hasta /v1 para APIs compatibles; para Ollama nativo usa la URL del servidor sin /api/chat. Desde Docker, localhost señala el contenedor: usa host.docker.internal para un modelo en el PC. En Linux Compose incorpora host-gateway. El runtime local debe escuchar en una interfaz accesible desde Docker, con su firewall limitado al acceso necesario.
+
+Los destinos HTTPS personalizados requieren autorización explícita. Cambiar el endpoint elimina la clave asociada al anterior. JSON básico permite modelos sin JSON Schema, manteniendo validación estricta. Habilita imágenes solo si el modelo las admite. No se sustituye silenciosamente el generador por el modo local cuando falla una API.
 
 No se proporciona una contraseña de aplicación predeterminada. PostgreSQL, Redis, Qdrant y sesiones reciben secretos distintos, nuevos en cada instalación. Las contraseñas del sistema operativo/SSH no se solicitan ni se utilizan por la aplicación.
 
@@ -102,7 +108,7 @@ No subir .env, datos, volúmenes, certificados, logs o credenciales al repositor
 ## Estado y límites conocidos
 
 - Los controles deterministas no garantizan implicación semántica: permanecen casos de unidades no reconocidas y atribución entre entidades que pueden pasar la validación.
-- El modo de mantenimiento build del reindexado necesita revisión: pausa la misma admisión que utiliza la reconstrucción administrativa.
+- Los índices antiguos requieren reconstrucción y cutover verificado. La recuperación conserva fuentes y colecciones anteriores; una fuente ausente impide activar un corpus incompleto.
 - La evaluación sintética comprueba términos y ubicaciones, no corrección completa de parámetros ni visión real.
 - No se acredita carga con 100 manuales industriales complejos, ni un SLA de modelos remotos.
 - La aplicación tiene un operador administrador; no es una plataforma multiusuario con permisos por documento.
@@ -116,3 +122,30 @@ La entrega se prepara para evaluación privada. No se ha seleccionado una licenc
 ## Actualizaciones desde GitHub
 
 El flujo de publicación y actualización del servidor está en docs/DEPLOYMENT.md. Los secretos y volúmenes no forman parte del repositorio. La guía de cumplimiento está en docs/REQUISITOS_CUMPLIMIENTO.md.
+
+## Desarrollo nativo y alta inicial
+
+Docker se evalúa con los comandos anteriores. El modo nativo es una instalación independiente:
+
+~~~powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --require-hashes -r requirements.lock
+Copy-Item .env.example .env
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-dev.ps1
+~~~
+
+No sobrescribas un .env existente. Abre http://localhost:8000/ y elige usuario y contraseña de al menos 15 caracteres. No hay contraseña compartida ni código que debas inventar. El alta directa exige cliente y Host de loopback, rechaza un Origin diferente y queda cerrada tras el primer propietario. En producción el propietario se crea por setup_env.py antes de arrancar.
+
+Cada instalación mantiene identidad, firma y cookie propias. Los datos se resuelven desde la raíz del proyecto; se conserva el catálogo nativo legado. Si hay dos catálogos, configura DATA_DIR absoluto para evitar una selección silenciosa.
+
+Recuperación de contraseña nativa desde la cuenta del sistema que administra sus datos:
+
+~~~powershell
+.\.venv\Scripts\python.exe -B backend/scripts/local_setup.py --reset-password
+~~~
+
+El cambio invalida sesiones anteriores. Docker utiliza start-local.ps1 -Action password o bash start-local.sh password.
+
+La interfaz y /api/v1/system/version muestran versión y huella del código. Si el índice pertenece a otra versión, inicia sesión y pulsa Recuperar índice anterior antes de subir PDFs. La identidad del pipeline sigue siendo layout-v3; la versión del producto es 4.0.0.
+
+Decisiones y límites: [implementación v4](docs/IMPLEMENTACION_V4.md).

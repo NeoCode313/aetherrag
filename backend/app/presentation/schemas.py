@@ -133,7 +133,7 @@ class DocumentDTO(BaseModel):
 
 
 class ProviderConfigRequest(BaseModel):
-    llm_provider: Literal["gemini", "ollama", "openai", "local"] = "gemini"
+    llm_provider: Literal["gemini", "ollama", "openai", "anthropic", "local"] = "gemini"
     gemini_api_key: str | None = None
     gemini_model: str | None = None
     ollama_base_url: str | None = None
@@ -141,6 +141,11 @@ class ProviderConfigRequest(BaseModel):
     openai_api_key: str | None = None
     openai_model: str | None = None
     openai_base_url: str | None = None
+    anthropic_api_key: str | None = None
+    anthropic_model: str | None = None
+    llm_supports_images: bool | None = None
+    openai_response_format: Literal["auto", "json_schema", "json_object"] | None = None
+    approve_endpoint: bool = False
     reingest_sample: bool = False
 
 
@@ -162,4 +167,13 @@ class SystemStatusResponse(BaseModel):
     generation_id: str = ""
     supports_images: bool = False
     credentials_editable: bool = False
+    provider_ready: bool = True
+    app_version: str = "4.0.0"
+    build_id: str = ""
+    index_compatible: bool = True
+    active_pipeline: str = ""
+    migration_status: str = "idle"
+    openai_base_url: str = ""
+    ollama_base_url: str = ""
+    response_format: str = "auto"
     openai_backend: Literal["groq", "openai", "custom"] = "custom"

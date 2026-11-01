@@ -111,3 +111,21 @@ def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
             for ref in claim.evidence_refs]) for claim in parsed.claims],
         input_tokens=input_tokens, output_tokens=output_tokens,
     )
+
+
+def portable_output_schema():
+    """Vendor subset; the original Pydantic constraints still validate every response."""
+    import copy
+    schema = copy.deepcopy(RAG_ANSWER_JSON_SCHEMA)
+    unsupported = {"minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "pattern"}
+    def visit(value):
+        if isinstance(value, dict):
+            for key in unsupported:
+                value.pop(key, None)
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+    visit(schema)
+    return schema

@@ -19,10 +19,13 @@ flock -n 9 || { echo "Another update is running" >&2; exit 1; }
 export AETHERRAG_ENV_FILE="$CONFIG/.env"
 cd -- "$SOURCE"
 OLD="$(git rev-parse HEAD)"
-git fetch --prune origin main
+TRACKING=origin/main
+if [[ "$REVISION" == origin/v4 ]]; then TRACKING=origin/v4; fi
+TRACK_BRANCH="$(printf '%s' "$TRACKING" | cut -d/ -f2)"
+git fetch --prune origin "$TRACK_BRANCH"
 NEW="$(git rev-parse --verify "$REVISION^{commit}")"
-if ! git merge-base --is-ancestor "$NEW" origin/main; then
-  echo "Revision must belong to origin/main" >&2; exit 2
+if ! git merge-base --is-ancestor "$NEW" "$TRACKING"; then
+  echo "Revision must belong to the selected origin/main or origin/v4 branch" >&2; exit 2
 fi
 if ! git diff --quiet "$OLD" "$NEW" -- backend/app/infrastructure/catalog_migrations.py backend/app/infrastructure/catalog_schema.py; then
   echo "Schema changes need a separate migration/backup plan; automatic update stopped." >&2; exit 2

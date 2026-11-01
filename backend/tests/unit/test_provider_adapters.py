@@ -57,6 +57,9 @@ def test_gemini_llm_and_embedding_adapters_with_mock_client(monkeypatch: pytest.
         output_text=json.dumps(payload),
         usage=SimpleNamespace(input_tokens=210, output_tokens=48),
     )
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(payload),
+        usage_metadata=SimpleNamespace(prompt_token_count=210, candidates_token_count=48))
     mock_client.models.embed_content.return_value = SimpleNamespace(
         embeddings=[SimpleNamespace(values=[3.0, 4.0, 0.0])]
     )

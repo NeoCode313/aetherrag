@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 
 from app.domain.exceptions import (
@@ -62,7 +63,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
-        version="3.0.0",
+        version="4.0.0",
         docs_url=None,
         redoc_url=None,
         description=(
@@ -100,7 +101,7 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def access_control(request: Request, call_next):
         path = request.url.path
-        public = path in {"/api/v1/system/live", "/api/v1/system/health", "/api/v1/auth/login"}
+        public = path in {"/api/v1/system/live", "/api/v1/system/health", "/api/v1/auth/login", "/api/v1/auth/setup", "/api/v1/auth/register", "/api/v1/system/version"}
         if path.startswith("/api/") and not public:
             try:
                 auth.session(request, mutate=request.method not in {"GET", "HEAD", "OPTIONS"})
@@ -120,6 +121,13 @@ def create_app() -> FastAPI:
         if path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def handle_request_validation(_req, exc):
+        # Validation errors must not echo keys, passwords or installation tokens.
+        errors = [{"type": error["type"], "loc": error["loc"], "msg": error["msg"]}
+                  for error in exc.errors()]
+        return JSONResponse({"detail": errors}, status_code=422)
 
     @app.exception_handler(ConflictError)
     async def handle_conflict(_req, exc):

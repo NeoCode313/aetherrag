@@ -123,12 +123,13 @@ def test_failed_development_change_does_not_mutate_settings(tmp_path):
         container.close()
 
 
-def test_production_style_change_accepts_model_only_and_rejects_browser_secrets(tmp_path):
+def test_private_provider_change_accepts_owner_credentials_and_model(tmp_path):
     from app.presentation.dependencies import AppContainer
     container=AppContainer(container_settings(tmp_path))
     try:
-        with pytest.raises(ValidationError,match="servidor"):
-            container.update_provider("openai",openai_api_key="not-accepted-from-browser")
+        container.update_provider("openai", openai_api_key="synthetic-owner-key")
+        assert container.identity.read()["provider"]["groq_api_key"] == "synthetic-owner-key"
+        assert "synthetic-owner-key" not in str(container.catalog.get_setting("llm_profile"))
         container.update_provider("openai",openai_model="openai/gpt-oss-120b")
         assert container.llm_provider.model_name=="groq/openai/gpt-oss-120b"
     finally:

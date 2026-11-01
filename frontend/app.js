@@ -5,7 +5,7 @@ const state = {
   activeVisual: null, relatedVisuals: [], activeCitations: [], activeView: "crop",
   pollingTimer: null, pollingGeneration: 0, opsTimer: null, opsStartMs: 0,
   activeAbortController: null, operationSeq: 0, csrfToken: "", user: null,
-  credentialsEditable: false,
+  credentialsEditable: false, registrationRequired: false, setupToken: "", localRegistration: false,
 };
 const nativeFetch = window.fetch.bind(window);
 const byId = (id) => document.getElementById(id);
@@ -63,11 +63,41 @@ async function apiFetch(path, options = {}) {
 
 async function restoreSession() {
   try {
+    const setupResponse = await nativeFetch("/api/v1/auth/setup", { credentials: "same-origin" });
+    if (setupResponse.ok) {
+      const setup = await setupResponse.json();
+      state.registrationRequired = setup.registration_required === true;
+      state.localRegistration = setup.local_registration_available === true;
+    }
+    byId("register-form").classList.toggle("hidden", !state.registrationRequired);
+    byId("login-form").classList.toggle("hidden", state.registrationRequired);
+    byId("login-title").textContent = state.registrationRequired ? "Crear propietario" : "Iniciar sesión";
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    if (fragment.has("setup")) {
+      state.setupToken = fragment.get("setup") || "";
+      byId("btn-register").disabled = state.setupToken.length < 20;
+      byId("setup-auth-message").textContent = state.setupToken.length >= 20
+        ? "Instalación autorizada por este equipo. Elige tu usuario y contraseña."
+        : "Falta la autorización. Ejecuta setup-local.ps1; no necesitas inventar ningún código.";
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    const version = await nativeFetch("/api/v1/system/version");
+    if (version.ok) {
+      const data = await version.json();
+      byId("label-provider").textContent = data.environment + " · v" + data.version + " · build " + data.build_id;
+    }
+    if (state.registrationRequired) {
+      byId("btn-register").disabled = !state.localRegistration && state.setupToken.length < 20;
+      byId("setup-auth-message").textContent = state.localRegistration
+        ? "Estás en tu equipo. Elige tu usuario y una contraseña propia; no necesitas ningún código."
+        : "Abre la aplicación desde localhost en el equipo donde la ejecutas para crear el propietario.";
+      showLogin("Primera configuración: crea tu propietario."); return;
+    }
     const response = await apiFetch("/api/v1/auth/session");
     if (!response.ok) return;
     acceptSession(await response.json());
     await Promise.all([refreshSystemStatus(), refreshDocuments()]);
-  } catch (error) { reportOpsProblem("No se pudo comprobar la sesión", String(error)); }
+  } catch (error) { reportOpsProblem("No se pudo comprobar el acceso", String(error)); }
 }
 
 function setVisualOpsState(mode, label) {
@@ -162,7 +192,7 @@ async function refreshSystemStatus() {
   if (!response.ok) return;
   const data = await response.json();
   state.credentialsEditable = data.credentials_editable === true;
-  for (const id of ["input-gemini-token", "input-openai-token", "input-openai-endpoint", "input-ollama-endpoint"]) {
+  for (const id of ["input-gemini-token", "input-openai-token", "input-openai-endpoint", "input-ollama-endpoint", "input-anthropic-token"]) {
     byId(id).disabled = !state.credentialsEditable;
     if (!state.credentialsEditable) {
       byId(id).value = "";
@@ -170,27 +200,36 @@ async function refreshSystemStatus() {
     }
   }
   byId("provider-config-note").textContent = state.credentialsEditable
-    ? "Desarrollo: claves en memoria; configura .env para conservarlas tras reiniciar."
+    ? "Configura como propietario: claves privadas persistentes, sin incluirlas en Git."
     : "Servidor: claves y endpoints se configuran en .env y requieren recrear API/worker. Aquí solo eliges proveedor y modelo.";
   byId("btn-preset-groq-qwen").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
   byId("btn-preset-groq").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
   byId("btn-preset-openai").disabled = !state.credentialsEditable && data.openai_backend !== "openai";
-  byId("label-provider").textContent = `${String(data.llm_provider).toUpperCase()} · ${data.llm_model}`;
-  byId("dot-provider").className = "status-dot ok";
+  byId("label-provider").textContent = (data.app_version || "v4") + " · " + (data.build_id || "fixture") + " · " + data.llm_model;
+  byId("dot-provider").className = data.provider_ready === false ? "status-dot err" : "status-dot ok";
   byId("label-vector").textContent = `${data.vector_backend} (${data.total_chunks} chunks)`;
   byId("label-cb").textContent = String(data.circuit_breaker_state).toUpperCase();
   byId("dot-cb").className = `status-dot ${data.circuit_breaker_state === "closed" ? "ok" : "err"}`;
   byId("embedding-model-note").textContent = `Embeddings fijos: ${data.embedding_model}. Cambiar el generador no modifica el índice.`;
-  const cleanModel = String(data.llm_model || "").replace(/^(openai|groq|gemini|ollama)\//, "");
+  if (data.openai_base_url) byId("input-openai-endpoint").value = data.openai_base_url;
+  if (data.ollama_base_url) byId("input-ollama-endpoint").value = data.ollama_base_url;
+  byId("input-supports-images").checked = data.supports_images === true;
+  byId("input-response-format").value = data.response_format || "auto";
+  const cleanModel = String(data.llm_model || "").replace(/^(openai|groq|gemini|ollama|anthropic)\//, "");
   if (data.llm_provider === "openai" && cleanModel) byId("input-openai-model").value = cleanModel;
   else if (data.llm_provider === "gemini" && cleanModel) byId("input-gemini-model").value = cleanModel;
   else if (data.llm_provider === "ollama" && cleanModel) byId("input-ollama-model").value = cleanModel;
+  if (data.llm_provider === "anthropic" && cleanModel) byId("input-anthropic-model").value = cleanModel;
+  const repair = byId("btn-recover-index");
+  repair.classList.toggle("hidden", data.index_compatible !== false);
+  repair.disabled = data.migration_status === "running";
+  repair.textContent = repair.disabled ? "Recuperando índice…" : "Recuperar índice anterior";
   const radio = document.querySelector(`input[name="llm_provider"][value="${data.llm_provider}"]`);
   if (radio) { radio.checked = true; syncProviderFields(data.llm_provider); }
 }
 
 function syncProviderFields(selected) {
-  ["gemini", "ollama", "openai"].forEach((provider) => byId(`fields-${provider}`).classList.toggle("hidden", selected !== provider));
+  ["gemini", "ollama", "openai", "anthropic"].forEach((provider) => byId(`fields-${provider}`).classList.toggle("hidden", selected !== provider));
 }
 
 async function refreshDocuments() {
@@ -261,6 +300,11 @@ async function uploadPdfFile(file) {
 }
 
 async function seedDemoManual() {
+  const current = await apiFetch("/api/v1/system/status");
+  if (current.ok && (await current.json()).index_compatible === false) {
+    reportOpsProblem("El índice necesita recuperación", "Usa Recuperar índice anterior; se conservarán tus documentos.");
+    return;
+  }
   const operation = beginOperation("Solicitando manual de demostración");
   byId("job-tracker").classList.remove("hidden");
   try {
@@ -853,6 +897,16 @@ document.addEventListener("DOMContentLoaded", () => {
     byId("input-openai-endpoint").value = "https://api.openai.com/v1";
     byId("input-openai-model").value = "gpt-4o-mini";
   });
+  byId("btn-preset-xai").addEventListener("click", () => {
+    byId("input-openai-endpoint").value = "https://api.x.ai/v1";
+    byId("input-openai-model").value = "";
+    byId("input-openai-model").placeholder = "Modelo exacto disponible en tu cuenta xAI";
+  });
+  byId("btn-preset-lmstudio").addEventListener("click", () => {
+    byId("input-openai-endpoint").value = "http://localhost:1234/v1";
+    byId("input-openai-model").value = "";
+    byId("input-openai-model").placeholder = "Identificador del modelo cargado en tu servidor";
+  });
   byId("provider-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const provider = document.querySelector('input[name="llm_provider"]:checked').value;
@@ -864,6 +918,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (byId("input-openai-endpoint").value.trim()) payload.openai_base_url = byId("input-openai-endpoint").value.trim();
       if (byId("input-openai-token").value.trim()) payload.openai_api_key = byId("input-openai-token").value.trim();
     }
+    if (state.credentialsEditable && provider === "anthropic" && byId("input-anthropic-token").value.trim()) payload.anthropic_api_key = byId("input-anthropic-token").value.trim();
+    if (provider !== "local") {
+      payload.llm_supports_images = byId("input-supports-images").checked;
+      payload.openai_response_format = byId("input-response-format").value;
+      payload.approve_endpoint = byId("input-approve-endpoint").checked;
+    }
+    byId("input-anthropic-token").value = "";
     byId("input-gemini-token").value = "";
     byId("input-openai-token").value = "";
     const operation = beginOperation("Aplicando generador configurado en el servidor");
@@ -876,11 +937,67 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) { if (error.name !== "AbortError") reportOpsProblem("No se cambió el generador", String(error)); }
     finally { if (state.activeAbortController === operation.controller) state.activeAbortController = null; }
   });
+  byId("register-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!state.localRegistration && state.setupToken.length < 20) {
+      byId("login-message").textContent = "Abre la aplicación desde localhost en el equipo donde la ejecutas para crear el propietario.";
+      return;
+    }
+    const password = byId("register-password").value;
+    const username = byId("register-username").value.trim();
+    if (password !== byId("register-confirm").value) { byId("login-message").textContent = "Las contraseñas no coinciden."; return; }
+    byId("btn-register").disabled = true;
+    try {
+      const response = await nativeFetch("/api/v1/auth/register", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, setup_token: state.setupToken }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(errorText(result, "No se pudo crear el propietario"));
+      state.registrationRequired = false;
+      byId("register-form").classList.add("hidden"); byId("login-form").classList.remove("hidden");
+      state.setupToken = "";
+      const login = await nativeFetch("/api/v1/auth/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
+      const session = await login.json();
+      if (!login.ok) throw new Error("Propietario creado. Inicia sesión.");
+      acceptSession(session);
+      await Promise.all([refreshSystemStatus(), refreshDocuments()]);
+    } catch (error) { byId("login-message").textContent = String(error); }
+    finally { byId("register-password").value = ""; byId("register-confirm").value = ""; byId("btn-register").disabled = false; }
+  });
+  byId("btn-recover-index").addEventListener("click", async () => {
+    try {
+      const response = await apiFetch("/api/v1/system/recover-index", { method: "POST" });
+      if (!response.ok) throw new Error(errorText(await response.json(), "Recuperación rechazada"));
+      byId("btn-recover-index").disabled = true;
+      const timer = setInterval(async () => {
+        try {
+          const status = await apiFetch("/api/v1/system/status");
+          if (!status.ok) return;
+          const data = await status.json();
+          await refreshSystemStatus();
+          if (data.migration_status !== "running") {
+            clearInterval(timer);
+            if (data.index_compatible) { finishOpsMonitor(); await refreshDocuments(); }
+            else reportOpsProblem("La recuperación no terminó", "Se conservaron los datos; revisa las fuentes y vuelve a intentar.");
+          }
+        } catch (_) { clearInterval(timer); }
+      }, 1500);
+      startOpsMonitor("Recuperando índice", "Reconstrucción aislada; no cierres la aplicación.");
+    } catch (error) { reportOpsProblem("Recuperación no iniciada", String(error)); }
+  });
+  byId("btn-test-provider").addEventListener("click", async () => {
+    try {
+      const response = await apiFetch("/api/v1/system/test-provider", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(errorText(data, "No se pudo probar el proveedor"));
+      byId("provider-test-message").textContent = data.message;
+    } catch (error) { byId("provider-test-message").textContent = String(error); }
+  });
   byId("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const submit = byId("btn-login");
     submit.disabled = true;
     const password = byId("login-password");
+    byId("live-ops-banner").classList.add("hidden");
     try {
       const response = await nativeFetch("/api/v1/auth/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: byId("login-username").value, password: password.value }) });
       const data = await response.json();

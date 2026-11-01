@@ -39,6 +39,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
     parser.add_argument("--allow-sqlite-test", action="store_true")
+    parser.add_argument("--pipeline-version", default=os.getenv("PIPELINE_VERSION", "layout-v3"))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("migrate")
     commands.add_parser("status")
@@ -66,7 +67,7 @@ def main() -> None:
             parser.error("Import --apply requires --generation-id and --profile-id")
     if not args.database_url:
         parser.error("DATABASE_URL or --database-url is required")
-    catalog = Catalog(args.database_url, allow_sqlite=args.allow_sqlite_test)
+    catalog = Catalog(args.database_url, allow_sqlite=args.allow_sqlite_test, pipeline_version=args.pipeline_version)
     try:
         if args.command in ("migrate", "status"):
             result = {"healthy": catalog.healthy(), "maintenance": catalog.maintenance(),

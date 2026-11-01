@@ -1,7 +1,7 @@
 """Google Gemini adapters using the current ``google-genai`` SDK (>= 2.30.1).
 
 Uses:
-* ``client.interactions.create`` with ``gemini-3.8-flash`` for multimodal RAG generation
+* ``client.models.generate_content`` with ``gemini-3.8-flash`` for multimodal RAG generation
   and structured JSON output.
 * ``client.models.embed_content`` with ``gemini-embedding-001`` for dense embeddings.
 * Wrapped in ``ResilientExecutor`` (Exponential Backoff + Jitter + Circuit Breaker).
@@ -25,7 +25,7 @@ from app.domain.exceptions import (
     TransientProviderError,
 )
 from app.domain.ports import EmbeddingProvider, LLMProvider
-from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer
+from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer, portable_output_schema
 from app.infrastructure.resilience import ResilientExecutor
 
 logger = logging.getLogger(__name__)
@@ -38,14 +38,14 @@ def _translate_gemini_error(exc: Exception) -> Exception:
     if isinstance(exc, errors.APIError):
         code = getattr(exc, "code", 0) or 0
         if code == 429:
-            return RateLimitError(f"Gemini rate limit exceeded (HTTP 429): {exc}")
+            return RateLimitError("Gemini rate limit exceeded (HTTP 429)")
         if code in {500, 502, 503, 504}:
-            return TransientProviderError(f"Gemini upstream server error (HTTP {code}): {exc}")
-        return ProviderError(f"Gemini API error (HTTP {code}): {exc}")
+            return TransientProviderError(f"Gemini upstream server error (HTTP {code})")
+        return ProviderError(f"Gemini API error (HTTP {code})")
     msg = str(exc).lower()
     if "timeout" in msg or "timed out" in msg or "connection" in msg or "reset" in msg:
-        return TransientProviderError(f"Gemini network/timeout error: {exc}")
-    return ProviderError(f"Unexpected Gemini error: {exc}")
+        return TransientProviderError("Gemini network/timeout error")
+    return ProviderError("Gemini returned an invalid or unsupported response")
 
 
 def _l2_normalize(vec: Sequence[float]) -> list[float]:
@@ -58,7 +58,7 @@ def _l2_normalize(vec: Sequence[float]) -> list[float]:
 
 
 class GeminiLLMProvider(LLMProvider):
-    """Multimodal LLM adapter powered by Gemini Interactions API (``gemini-3.8-flash``)."""
+    """Multimodal LLM adapter powered by Gemini GenerateContent API (``gemini-3.8-flash``)."""
 
     def __init__(
         self,
@@ -99,46 +99,23 @@ class GeminiLLMProvider(LLMProvider):
     ) -> GeneratedAnswer:
         if images and not self.supports_images:
             raise ProviderError("El perfil Gemini no tiene visión habilitada.")
-        content_items: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        parts = [types.Part.from_text(text=prompt)]
         for img in images:
-            content_items.append(
-                {
-                    "type": "text",
-                    "text": f"[Imagen adjunta para la figura {img.alias}]",
-                }
-            )
-            content_items.append(
-                {
-                    "type": "image",
-                    "data": base64.b64encode(img.data).decode("utf-8"),
-                    "mime_type": img.mime_type,
-                }
-            )
+            parts.extend([types.Part.from_text(text="Imagen " + img.alias),
+                          types.Part.from_bytes(data=img.data, mime_type=img.mime_type)])
 
         def _invoke() -> GeneratedAnswer:
             try:
-                interaction = self._client.interactions.create(
+                response = self._client.models.generate_content(
                     model=self._model,
-                    system_instruction=system_instruction,
-                    input=content_items if len(content_items) > 1 else prompt,
-                    response_format={
-                        "type": "text",
-                        "mime_type": "application/json",
-                        "schema": RAG_ANSWER_JSON_SCHEMA,
-                    },
-                    generation_config={
-                        "max_output_tokens": self._max_output_tokens,
-                    },
-                    store=False,
-                )
-                usage = getattr(interaction, "usage", None)
-                in_tok = getattr(usage, "input_tokens", None) if usage else None
-                out_tok = getattr(usage, "output_tokens", None) if usage else None
-                return parse_structured_answer(
-                    interaction.output_text or "",
-                    input_tokens=in_tok,
-                    output_tokens=out_tok,
-                )
+                    contents=[types.Content(role="user", parts=parts)],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction, response_mime_type="application/json",
+                        response_json_schema=portable_output_schema(), max_output_tokens=self._max_output_tokens))
+                usage = getattr(response, "usage_metadata", None)
+                return parse_structured_answer(response.text or "",
+                    input_tokens=getattr(usage, "prompt_token_count", None),
+                    output_tokens=getattr(usage, "candidates_token_count", None))
             except Exception as exc:
                 raise _translate_gemini_error(exc) from exc
 
@@ -149,27 +126,13 @@ class GeminiLLMProvider(LLMProvider):
             raise ProviderError("El perfil Gemini no tiene visión habilitada.")
         def _invoke() -> str:
             try:
-                interaction = self._client.interactions.create(
+                response = self._client.models.generate_content(
                     model=self._model,
-                    input=[
-                        {
-                            "type": "text",
-                            "text": (
-                                "Describe con precisión técnica este diagrama o esquema de ingeniería "
-                                    f"(imagen {image.alias}, contexto: {context}). Incluye componentes numerados, flechas de flujo, "
-                                "sensores y magnitudes visibles en máximo 90 palabras."
-                            ),
-                        },
-                        {
-                            "type": "image",
-                            "data": base64.b64encode(image.data).decode("utf-8"),
-                            "mime_type": image.mime_type,
-                        },
-                    ],
-                    generation_config={"max_output_tokens": 250},
-                    store=False,
-                )
-                return (interaction.output_text or "").strip()
+                    contents=[types.Content(role="user", parts=[
+                        types.Part.from_text(text="Describe este diagrama técnico. Imagen " + image.alias + "; contexto: " + context),
+                        types.Part.from_bytes(data=image.data, mime_type=image.mime_type)])],
+                    config=types.GenerateContentConfig(max_output_tokens=250))
+                return (response.text or "").strip()
             except Exception as exc:
                 raise _translate_gemini_error(exc) from exc
 

@@ -29,6 +29,7 @@ class OpenAILLMProvider(LLMProvider):
         base_url: str = "https://api.openai.com/v1",
         timeout: float = 45.0,
         supports_images: bool = False,
+        response_format: str = "auto",
     ) -> None:
         self._api_key = api_key.strip().strip("'\"")
         self._model = model.strip().strip("'\"")
@@ -36,6 +37,7 @@ class OpenAILLMProvider(LLMProvider):
         self._executor = executor
         self._timeout = max(1.0, min(timeout, 120.0))
         self._supports_images = supports_images
+        self._response_format = response_format
 
     @property
     def _is_groq(self) -> bool:
@@ -81,7 +83,8 @@ class OpenAILLMProvider(LLMProvider):
             user_content = prompt
 
         strict_groq = self._model in {"openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"}
-        if self._is_groq and not strict_groq:
+        json_mode = self._response_format == "json_object" or (self._response_format == "auto" and self._is_groq and not strict_groq)
+        if json_mode:
             resp_fmt: dict[str, Any] = {"type": "json_object"}
             system_instruction = (
                 system_instruction
@@ -106,9 +109,8 @@ class OpenAILLMProvider(LLMProvider):
                 {"role": "user", "content": user_content},
             ],
             "response_format": resp_fmt,
-            "temperature": 0.1,
         }
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
         provider_label = "Groq" if self._is_groq else "OpenAI"
 
         def _invoke() -> GeneratedAnswer:
@@ -117,7 +119,7 @@ class OpenAILLMProvider(LLMProvider):
                     request_payload = {**payload, "messages": [dict(message) for message in payload["messages"]]}
                     # JSON-object mode does not enforce the schema. Allow one bounded
                     # regeneration, preserving the original evidence and strict validator.
-                    attempts = 2 if self._is_groq and not strict_groq else 1
+                    attempts = 2 if json_mode else 1
                     for attempt in range(attempts):
                         resp = client.post(f"{self._base_url}/chat/completions", json=request_payload, headers=headers)
                         resp.raise_for_status()

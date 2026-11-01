@@ -39,7 +39,9 @@ def test_development_does_not_use_shared_default_secrets_or_password(tmp_path):
         llm_provider="local",embedding_provider="local",vector_backend="memory",
         auto_seed_sample_manual=False))
     try:
-        assert not first.settings.auth_enabled
+        assert first.settings.auth_enabled
+        assert first.identity.read().get("setup_token")
+        assert first.settings.session_cookie_name != second.settings.session_cookie_name
         assert first.settings.operator_password_hash==""
         assert first.settings.session_secret!=second.settings.session_secret
     finally:

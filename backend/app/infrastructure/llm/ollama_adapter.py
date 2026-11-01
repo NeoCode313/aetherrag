@@ -26,13 +26,13 @@ def _translate_http_error(exc: Exception, provider: str = "Ollama") -> Exception
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
         if status == 429:
-            return RateLimitError(f"{provider} rate limit (HTTP 429)")
+            return RateLimitError(f"{provider}: límite de solicitudes o cuota (HTTP 429). Espera o cambia de proveedor/modelo; la carga de documentos sigue disponible.")
         if status >= 500:
             return TransientProviderError(f"{provider} server error (HTTP {status})")
         return ProviderError(f"{provider} HTTP {status}")
     if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)):
-        return TransientProviderError(f"{provider} network/timeout error: {exc}")
-    return ProviderError(f"{provider} error: {exc}")
+        return TransientProviderError(f"{provider} network/timeout error")
+    return ProviderError(f"{provider} returned an invalid or unsupported response")
 
 
 class OllamaLLMProvider(LLMProvider):

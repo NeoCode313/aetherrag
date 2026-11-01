@@ -16,8 +16,8 @@ from argon2 import PasswordHasher
 def configuration(username: str, password: str) -> str:
     if not username or not username.isascii() or len(username) > 128 or not all(c.isalnum() or c in "_.-" for c in username):
         raise ValueError("Operator name permits letters, numbers, underscore, dot and dash")
-    if len(password) < 12 or len(password) > 512:
-        raise ValueError("Use an operator password containing 12-512 characters")
+    if len(password) < 15 or len(password) > 512:
+        raise ValueError("Use an operator password containing 15-512 characters")
     database_password, redis_password = secrets.token_hex(24), secrets.token_hex(24)
     values = {
         "ENVIRONMENT": "production", "DATA_DIR": "./data", "OPERATOR_USERNAME": username,
@@ -48,7 +48,7 @@ def main() -> None:
     if args.password_env:
         password = os.environ.get(args.password_env, "")
     else:
-        password = getpass.getpass("Operator password (at least 12 characters): ")
+        password = getpass.getpass("Operator password (at least 15 characters): ")
         if password != getpass.getpass("Repeat password: "):
             parser.error("Passwords do not match")
     try:

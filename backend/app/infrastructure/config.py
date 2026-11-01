@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -27,7 +31,7 @@ class Settings(BaseSettings):
     auto_seed_sample_manual: bool = True
 
     # Provider selection (Dependency Injection switches)
-    llm_provider: Literal["gemini", "ollama", "openai", "local", "auto"] = "auto"
+    llm_provider: Literal["gemini", "ollama", "openai", "anthropic", "local", "auto"] = "auto"
     embedding_provider: Literal["gemini", "ollama", "openai", "local", "auto"] = "auto"
     vector_backend: Literal["qdrant", "embedded", "memory", "auto"] = "auto"
     queue_backend: Literal["background", "celery"] = "background"
@@ -42,8 +46,13 @@ class Settings(BaseSettings):
     session_secret: str = ""
     session_secure: bool = True
     session_ttl_seconds: int = 28800
+    installation_id: str = ""
+    session_cookie_name: str = "aetherrag_session"
+    anthropic_api_key: str = ""
+    anthropic_model: str = ""
+    openai_response_format: Literal["auto", "json_schema", "json_object"] = "auto"
     cors_origins: list[str] = []
-    provider_allowed_hosts: list[str] = ["api.openai.com", "api.groq.com", "localhost", "127.0.0.1", "ollama"]
+    provider_allowed_hosts: list[str] = ["api.openai.com", "api.groq.com", "api.x.ai", "api.anthropic.com", "host.docker.internal", "vllm", "lmstudio", "localhost", "127.0.0.1", "ollama"]
     llm_supports_images: bool = False
     ocr_enabled: bool = False
     ocr_language: str = "eng"
@@ -99,6 +108,20 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = 45.0
 
 
+    @model_validator(mode="after")
+    def stable_storage(self):
+        if self.environment != "test" and not self.data_dir.is_absolute():
+            # Preserve the legacy native installation instead of silently selecting a new catalog.
+            target = PROJECT_ROOT / self.data_dir
+            legacy = PROJECT_ROOT / "backend" / self.data_dir
+            if self.data_dir == Path("data") and (legacy / "catalog-dev.sqlite").is_file():
+                if (target / "catalog-dev.sqlite").is_file():
+                    raise ValueError("Hay dos catálogos locales; configura DATA_DIR con una ruta absoluta")
+                target = legacy
+            self.data_dir = target.resolve()
+        return self
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    return Settings(_env_file=os.environ.get("AETHERRAG_ENV_FILE", str(PROJECT_ROOT / ".env")))

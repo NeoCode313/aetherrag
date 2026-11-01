@@ -16,7 +16,7 @@ from app.domain.exceptions import ValidationError, ConflictError
 from app.infrastructure.catalog import Catalog
 from app.infrastructure.config import Settings, get_settings
 from app.infrastructure.pdf.pymupdf_parser import PyMuPDFDocumentParser
-from app.infrastructure.providers import digest, embedding_profile, make_embedder, make_llm
+from app.infrastructure.providers import digest, embedding_profile, make_embedder, make_llm, configured_llm
 from app.infrastructure.resilience import CircuitBreaker, ResilientExecutor
 from app.infrastructure.sample_manual import build_sample_manual_pdf
 from app.infrastructure.storage import LocalFileStorage
@@ -32,25 +32,36 @@ class AppContainer:
         self.settings = settings or get_settings()
         if self.settings.pipeline_version != "layout-v3":
             raise ValidationError("Este código requiere PIPELINE_VERSION=layout-v3. Drene workers v2, construya la nueva generación y ejecute el cutover.")
+        from app.infrastructure.installation_state import InstallationState, source_build
+        self.identity = InstallationState(self.settings.data_dir, self.settings.operator_username,
+            self.settings.operator_password_hash, self.settings.session_secret)
+        self.build_id = source_build()
+        self.started_at = __import__("time").time()
+        state = self.identity.read()
+        owner = state.get("owner") or {}
         if self.settings.environment == "test" and "auth_enabled" not in self.settings.model_fields_set:
             self.settings.auth_enabled = False
-        elif self.settings.environment == "development":
-            if "auth_enabled" not in self.settings.model_fields_set and not self.settings.operator_password_hash:
-                self.settings.auth_enabled = False
-            if "session_secure" not in self.settings.model_fields_set:
-                self.settings.session_secure = False
-            if len(self.settings.session_secret) < 32:
-                self.settings.session_secret = secrets.token_urlsafe(48)
-        if self.settings.auth_enabled and (len(self.settings.session_secret) < 32 or not self.settings.operator_password_hash):
-            raise ValidationError("Configure SESSION_SECRET y OPERATOR_PASSWORD_HASH para habilitar autenticación")
+        elif self.settings.environment != "test":
+            self.settings.auth_enabled = True
+        self.settings.installation_id = state["installation_id"]
+        self.settings.session_secret = state["session_secret"]
+        if owner:
+            self.settings.operator_username = owner["username"]
+            self.settings.operator_password_hash = owner["password_hash"]
+        if self.settings.environment != "test":
+            self.settings.session_cookie_name = "aetherrag_" + state["installation_id"][:12]
+        if self.settings.environment == "development" and "session_secure" not in self.settings.model_fields_set:
+            self.settings.session_secure = False
+        self._provider_base = self.settings.model_copy(deep=True)
+        self._provider_revision = -1
+        self._load_private_provider()
         if self.settings.environment == "production":
             if not self.settings.database_url.startswith(("postgresql://", "postgresql+psycopg://")):
-                raise ValidationError("Producción requiere DATABASE_URL de PostgreSQL")
+                raise ValidationError("Producción requiere PostgreSQL")
             if self.settings.queue_backend != "celery" or self.settings.vector_backend != "qdrant":
-                raise ValidationError("Producción requiere Celery y Qdrant remotos explícitos")
-            if (not self.settings.auth_enabled or len(self.settings.session_secret) < 32
-                    or not self.settings.operator_password_hash):
-                raise ValidationError("Configure autenticación y secretos antes de iniciar producción")
+                raise ValidationError("Producción requiere Celery y Qdrant remotos")
+            if not owner:
+                raise ValidationError("Configura el propietario mediante setup_env.py antes de producción")
         self._lock = threading.RLock()
         self._stop, self._wake = threading.Event(), threading.Event()
         self._dispatcher = None
@@ -88,15 +99,16 @@ class AppContainer:
             url=None if memory or embedded else self.settings.qdrant_url,
             api_key=self.settings.qdrant_api_key,
             local_path=self.settings.data_dir / "qdrant_local" if embedded else None)
-        profile = embedding_profile(self.settings)
+        # UI generation credentials cannot silently change the embedding profile at restart.
+        profile = embedding_profile(self._provider_base)
         fingerprint = digest(profile)
         self.configured_generation = self.catalog.ensure_generation(
             fingerprint, self.settings.qdrant_collection + "_" + fingerprint[:16], profile)
         active = self.catalog.active_generation()
         self.store_for_generation(active["generation_id"]).ensure_collection(
             self.resolve_embedder(active["profile_id"]).dimension)
-        selected_llm = self.catalog.get_setting("llm_profile") or {}
-        self.active_provider_name, self.llm_provider = make_llm(self.settings, self.llm_executor,
+        selected_llm = {} if self.identity.read().get("provider", {}).get("llm_provider") else (self.catalog.get_setting("llm_profile") or {})
+        self.active_provider_name, self.llm_provider = configured_llm(self.settings, self.llm_executor,
             provider=selected_llm.get("provider"), model=selected_llm.get("model"))
         self.parser = PyMuPDFDocumentParser(
             storage=self.storage, ocr_enabled=self.settings.ocr_enabled,
@@ -116,6 +128,42 @@ class AppContainer:
             max_upload_mb=self.settings.max_upload_mb, lease_seconds=self.settings.job_lease_seconds)
         self.task_queue = (CeleryTaskQueue() if self.settings.queue_backend == "celery"
                            else ThreadedBackgroundTaskQueue(self.ingest_use_case.execute_job, max_workers=2))
+
+    def _load_private_provider(self):
+        state = self.identity.read()
+        for key, value in state.get("provider", {}).items():
+            if key in {"llm_provider", "gemini_api_key", "gemini_model", "openai_api_key", "groq_api_key",
+                       "openai_model", "openai_base_url", "ollama_base_url", "ollama_model",
+                       "anthropic_api_key", "anthropic_model", "openai_response_format",
+                       "llm_supports_images", "provider_allowed_hosts"}:
+                setattr(self.settings, key, value)
+        self._provider_revision = state["revision"]
+
+    def refresh_private_settings(self):
+        state = self.identity.read()
+        if state["revision"] != self._provider_revision:
+            with self._lock:
+                self._load_private_provider()
+                self._llm_cache.clear()
+                selected = {} if state.get("provider", {}).get("llm_provider") else (self.catalog.get_setting("llm_profile") or {})
+                self.active_provider_name, self.llm_provider = configured_llm(self.settings, self.llm_executor,
+                    provider=selected.get("provider"), model=selected.get("model"))
+                if state.get("provider"):
+                    self.llm_breaker.record_success()
+        self.settings.session_secret = state["session_secret"]
+        owner = state.get("owner") or {}
+        if owner:
+            self.settings.operator_username = owner["username"]
+            self.settings.operator_password_hash = owner["password_hash"]
+
+    def index_state(self):
+        active = self.catalog.active_generation()
+        profile = self.catalog.profile_by_id(active["profile_id"])
+        return {"running_pipeline": self.settings.pipeline_version,
+                "active_pipeline": profile.get("pipeline_version"),
+                "compatible": profile.get("pipeline_version") == self.settings.pipeline_version,
+                "target_generation": self.configured_generation["generation_id"],
+                "migration": self.catalog.get_setting("index_recovery") or {"status": "idle"}}
 
     def resolve_pipeline(self, profile_id):
         with self._lock:
@@ -160,15 +208,18 @@ class AppContainer:
 
     def query_for(self, document_ids=None):
         # Physical collection, query embedder and active runs are pinned for this request.
+        self.refresh_private_settings()
         snapshot = self.catalog.query_snapshot(document_ids)
         active, runs, shared = snapshot["generation"], snapshot["run_ids"], snapshot["llm_profile"]
+        if self.identity.read().get("provider", {}).get("llm_provider"):
+            shared = {}
         with self._lock:
             key = digest({"profile": shared, "settings": self.settings.model_dump(mode="json", include={
                 "llm_provider", "gemini_api_key", "gemini_model", "openai_api_key", "groq_api_key",
                 "openai_model", "openai_base_url", "ollama_model", "ollama_base_url",
-                "llm_supports_images", "provider_timeout_seconds"})})
+                "llm_supports_images", "provider_timeout_seconds", "anthropic_api_key", "anthropic_model", "openai_response_format"})})
             if key not in self._llm_cache:
-                value = make_llm(self.settings, self.llm_executor,
+                value = configured_llm(self.settings, self.llm_executor,
                                  provider=shared.get("provider"), model=shared.get("model"))
                 self._llm_cache = {key: value}
             choice, llm = self._llm_cache[key]
@@ -186,34 +237,53 @@ class AppContainer:
     def update_provider(self, llm_provider, **kwargs):
         with self._lock:
             candidate = self.settings.model_copy(deep=True)
-            # In test/production or for local provider, raw secrets/URLs are rejected.
-            for key in ("gemini_api_key", "openai_api_key", "openai_base_url", "ollama_base_url"):
-                if kwargs.get(key) and (self.settings.environment != "development" or llm_provider == "local"):
-                    raise ValidationError("Las claves y URLs se configuran mediante secretos del servidor")
-            if self.settings.environment == "development" and llm_provider != "local":
-                from app.infrastructure.providers import validate_endpoint
-                if kwargs.get("gemini_api_key"):
-                    candidate.gemini_api_key = kwargs["gemini_api_key"].strip().strip("'\"")
-                if kwargs.get("ollama_base_url"):
-                    candidate.ollama_base_url = validate_endpoint(kwargs["ollama_base_url"].strip(), candidate.provider_allowed_hosts)
-                if kwargs.get("openai_base_url"):
-                    candidate.openai_base_url = validate_endpoint(kwargs["openai_base_url"].strip(), candidate.provider_allowed_hosts)
-                if kwargs.get("openai_api_key"):
-                    clean_key = kwargs["openai_api_key"].strip().strip("'\"")
-                    from urllib.parse import urlsplit
-                    if urlsplit(candidate.openai_base_url).hostname == "api.groq.com":
-                        candidate.groq_api_key = clean_key
-                    else:
-                        candidate.openai_api_key = clean_key
-            model = kwargs.get({"gemini": "gemini_model", "openai": "openai_model", "ollama": "ollama_model"}.get(llm_provider, ""))
+            if llm_provider == "local" and any(kwargs.get(k) for k in ("gemini_api_key", "openai_api_key", "anthropic_api_key", "openai_base_url", "ollama_base_url")):
+                raise ValidationError("El modo extractivo no utiliza claves ni endpoints")
+            from app.infrastructure.providers import validate_endpoint, approved_hosts
+            if kwargs.get("openai_base_url"):
+                endpoint = kwargs["openai_base_url"].strip()
+                candidate.provider_allowed_hosts = approved_hosts(endpoint, candidate.provider_allowed_hosts, kwargs.get("approve_endpoint", False))
+                candidate.openai_base_url = validate_endpoint(endpoint, candidate.provider_allowed_hosts)
+                if endpoint != self.settings.openai_base_url:
+                    candidate.openai_api_key = ""
+                    candidate.groq_api_key = ""
+            if kwargs.get("ollama_base_url"):
+                endpoint = kwargs["ollama_base_url"].strip()
+                candidate.provider_allowed_hosts = approved_hosts(endpoint, candidate.provider_allowed_hosts, kwargs.get("approve_endpoint", False))
+                candidate.ollama_base_url = validate_endpoint(endpoint, candidate.provider_allowed_hosts)
+            for key in ("gemini_api_key", "anthropic_api_key"):
+                if kwargs.get(key):
+                    setattr(candidate, key, kwargs[key].strip())
+            if kwargs.get("openai_api_key"):
+                from urllib.parse import urlsplit
+                key = "groq_api_key" if urlsplit(candidate.openai_base_url).hostname == "api.groq.com" else "openai_api_key"
+                setattr(candidate, key, kwargs["openai_api_key"].strip())
+            for key in ("gemini_model", "openai_model", "ollama_model", "anthropic_model", "openai_response_format", "llm_supports_images"):
+                if kwargs.get(key) is not None:
+                    setattr(candidate, key, kwargs[key])
+            model = kwargs.get({"gemini": "gemini_model", "openai": "openai_model", "ollama": "ollama_model", "anthropic": "anthropic_model"}.get(llm_provider, ""))
             choice, provider = make_llm(candidate, self.llm_executor, provider=llm_provider, model=model)
             default_model = {"gemini": candidate.gemini_model, "openai": candidate.openai_model,
-                             "ollama": candidate.ollama_model, "local": provider.model_name}[choice]
+                             "ollama": candidate.ollama_model, "anthropic": candidate.anthropic_model, "local": provider.model_name}[choice]
             spec = {"provider": choice, "model": model or default_model}
-            self.catalog.set_setting("llm_profile", spec)
+            candidate.llm_provider = choice
+            values = {key: getattr(candidate, key) for key in (
+                "llm_provider",
+                "gemini_api_key", "gemini_model", "openai_api_key", "groq_api_key", "openai_model",
+                "openai_base_url", "ollama_base_url", "ollama_model", "anthropic_api_key", "anthropic_model",
+                "openai_response_format", "llm_supports_images", "provider_allowed_hosts")}
+            # The atomic installation file is authoritative for selection AND credentials.
+            # Catalog metadata is only a redacted compatibility mirror for older tooling.
+            self.identity.save_provider(values)
+            try:
+                self.catalog.set_setting("llm_profile", spec)
+            except Exception:
+                logger.warning("Provider configured; redacted catalog mirror deferred")
             self.settings = candidate
+            self._provider_revision = self.identity.read()["revision"]
             self._llm_cache.clear()
             self.active_provider_name, self.llm_provider = choice, provider
+            self.llm_breaker.record_success()
 
     def dispatch_once(self):
         self.catalog.reconcile()
@@ -248,7 +318,7 @@ class AppContainer:
         return job.job_id, dedup
 
     def ensure_seeded_on_startup(self):
-        if self.settings.auto_seed_sample_manual and self.settings.environment != "test" and not self.doc_repo.list():
+        if self.settings.auto_seed_sample_manual and self.settings.environment != "test" and self.index_state()["compatible"] and not self.doc_repo.list():
             self.seed_sample_manual()
 
     def close(self):
@@ -256,6 +326,12 @@ class AppContainer:
         self._wake.set()
         if self._dispatcher:
             self._dispatcher.join(timeout=5)
+        recovery = getattr(self, "_recovery_thread", None)
+        if recovery and recovery.is_alive():
+            recovery.join(timeout=self.settings.pdf_max_parse_seconds + 10)
+            if recovery.is_alive():
+                logger.warning("Recovery still draining; resources kept open until process exit")
+                return
         if hasattr(self.task_queue, "close"):
             self.task_queue.close()
         self.vector_store.client.close()

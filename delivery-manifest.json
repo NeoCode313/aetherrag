@@ -10,8 +10,8 @@
     },
     {
       "path": ".env.example",
-      "sha256": "4e9fe365abc51e29f2beaceae00c08ed37a79f9645fbe5b1fcb2ca0e714a6bc1",
-      "bytes": 2171
+      "sha256": "8daca339659a6e857bd70888f8f05ac25741a8b0da7a498f00e00df088033ff6",
+      "bytes": 2306
     },
     {
       "path": ".gitattributes",
@@ -20,13 +20,13 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "ae73dd0dd528afbbcd3efb3579ee4e12323bf2b13a7acb337e3be153e7df3ab5",
-      "bytes": 2551
+      "sha256": "f2f9eabf44e73bcd1b27a9c93623117de694cff7ad4ba35957d727fbf15fa6e3",
+      "bytes": 2837
     },
     {
       "path": ".gitignore",
-      "sha256": "32c324507625a7941686e7c3d25728e8c26510a526f494a6c76be04e6da36be5",
-      "bytes": 496
+      "sha256": "d829d1cc624ac078d70948a9dcbe8ad339a290bb9039b52e0d7d57a1005a4c94",
+      "bytes": 517
     },
     {
       "path": "Caddyfile",
@@ -40,8 +40,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "8343386f2793fcfee4a74c13f2a48de0b4b8b10b741a9c4a08758793506cb10e",
-      "bytes": 7211
+      "sha256": "473e5690cfbe4a2bff232aec03dee2cb0ef85c7febea9d0f323d31966ad9d26c",
+      "bytes": 10014
     },
     {
       "path": "backend/app/__init__.py",
@@ -69,6 +69,11 @@
       "bytes": 4023
     },
     {
+      "path": "backend/app/application/services/index_recovery.py",
+      "sha256": "fcabf0016fc5ed8510a25c4a34556f49201f22792008b62f85cfdbd9d2cc3226",
+      "bytes": 6997
+    },
+    {
       "path": "backend/app/application/services/layout_chunker.py",
       "sha256": "55de524abd2bfbb7f842b5673ecfbbcdf89be91bc518e7501cd58d8391f2d2b4",
       "bytes": 11135
@@ -90,8 +95,8 @@
     },
     {
       "path": "backend/app/application/use_cases/ingest_document.py",
-      "sha256": "ee0b1134ef42782af311bcc414fca046caf110bc704155eea7634e093847e7b8",
-      "bytes": 7789
+      "sha256": "e4bd5d709c0e11001b907732567f504824d7646ffdd603f70ef1000bc5ee538f",
+      "bytes": 8144
     },
     {
       "path": "backend/app/application/use_cases/query_rag.py",
@@ -100,8 +105,8 @@
     },
     {
       "path": "backend/app/cli.py",
-      "sha256": "3a039279483d1dab4d27604aff3140aea5af947e021e78f466c8d826fd0ee929",
-      "bytes": 4573
+      "sha256": "0b1496bf4f37fc3caf3f0130ba176774324bf547071938e93cab8a2582193839",
+      "bytes": 5150
     },
     {
       "path": "backend/app/domain/__init__.py",
@@ -130,8 +135,8 @@
     },
     {
       "path": "backend/app/infrastructure/catalog.py",
-      "sha256": "5790ae54f25a86b6ec25d3cb263416e4b19b3a0b688e6d293db00ac48c7097ba",
-      "bytes": 59106
+      "sha256": "38b9365114a1b5ad4a34e68dba7f03e9dacd0b0eb0a5e9a94de15d9b0f74296d",
+      "bytes": 59173
     },
     {
       "path": "backend/app/infrastructure/catalog_migrations.py",
@@ -145,8 +150,8 @@
     },
     {
       "path": "backend/app/infrastructure/config.py",
-      "sha256": "e3f5313609f68e2ab3760d6da09da8fb08517ea7adb8384a40b51b0e403aadba",
-      "bytes": 3599
+      "sha256": "76f80a4d297178e7041910d4659790452ba3196d0791e0e5b4bbd5bc82d4bf4e",
+      "bytes": 4784
     },
     {
       "path": "backend/app/infrastructure/http_limits.py",
@@ -154,14 +159,24 @@
       "bytes": 4284
     },
     {
+      "path": "backend/app/infrastructure/installation_state.py",
+      "sha256": "9914e5ee9b6847ee12c5f07f9af89d5ca5e41647cdf557275ff2f5b4bd362ed7",
+      "bytes": 4975
+    },
+    {
       "path": "backend/app/infrastructure/llm/__init__.py",
       "sha256": "bb4eec217b759a9d377a11560f783ab9050e4d0f74dd314daf54c53b1e0d200f",
       "bytes": 91
     },
     {
+      "path": "backend/app/infrastructure/llm/anthropic_adapter.py",
+      "sha256": "f0704c98ddcd281f88fbc487026e102c5573f1974dfe388a899580b4fe046243",
+      "bytes": 2755
+    },
+    {
       "path": "backend/app/infrastructure/llm/gemini_adapter.py",
-      "sha256": "2bc8df7838d5c5f34eebac074a8a80190fa262b6cfc12e126e822262d8d781f0",
-      "bytes": 10118
+      "sha256": "2548c26eeec1d454ab0e3b0e3d9f76cd2b7b523eaee3b0d09920bc0bb9ee1b2b",
+      "bytes": 8977
     },
     {
       "path": "backend/app/infrastructure/llm/local_fallback.py",
@@ -170,18 +185,18 @@
     },
     {
       "path": "backend/app/infrastructure/llm/ollama_adapter.py",
-      "sha256": "dbbc21ec05bd2ca063a6d584926a385ae398793911a20ed623d4fdfa1710af4c",
-      "bytes": 6940
+      "sha256": "b1206b2ee3f561da892c0e57726731aedf12536281efe001205d3915bf0d6131",
+      "bytes": 7064
     },
     {
       "path": "backend/app/infrastructure/llm/openai_adapter.py",
-      "sha256": "6078192eaf24ca2e7d600f88c6aff0ff333916eeb8b741a8cfcf19a8cafb0c6e",
-      "bytes": 9953
+      "sha256": "cc9a2c2f5555d9908054f433a697da6432ec6b09dc04875fab2cfc81213e484d",
+      "bytes": 10119
     },
     {
       "path": "backend/app/infrastructure/llm/schemas.py",
-      "sha256": "9065c0b81f683ba6b684f89a0011e4a2a8726ca7ced9fe128f48d46374336a92",
-      "bytes": 5162
+      "sha256": "396df00225d1b30015f1c10bc4a270f9fff802008e0e9abafc228be22d9db872",
+      "bytes": 5789
     },
     {
       "path": "backend/app/infrastructure/logging.py",
@@ -200,8 +215,8 @@
     },
     {
       "path": "backend/app/infrastructure/providers.py",
-      "sha256": "83189b4836a2d3c69c0c5a2a018cbcb0eee01e7c439f1100ec2c6c0bac57e871",
-      "bytes": 5946
+      "sha256": "bf41902144ae58f5d595fe22640a6681c54fdc2aa476bb2cdfea4e025437acbb",
+      "bytes": 8323
     },
     {
       "path": "backend/app/infrastructure/resilience.py",
@@ -245,8 +260,8 @@
     },
     {
       "path": "backend/app/main.py",
-      "sha256": "8e6e9732cd89977e265956b6528d07fab2f301d0b7a41f3ae09df473e4f3858d",
-      "bytes": 8345
+      "sha256": "d9451afe22ba4f1531726360b281b924d0d5917433409e551b823bd3b253fa99",
+      "bytes": 8852
     },
     {
       "path": "backend/app/presentation/__init__.py",
@@ -255,13 +270,13 @@
     },
     {
       "path": "backend/app/presentation/auth.py",
-      "sha256": "2f4519e53a36c9a428751aad8b5149e4402b9977e9122b78e0a940ec36ea10f5",
-      "bytes": 5344
+      "sha256": "06c1124dbf7e87a8e15a28f345aab85e87dcdb3eb5c102be4afac01100a4eed1",
+      "bytes": 8010
     },
     {
       "path": "backend/app/presentation/dependencies.py",
-      "sha256": "fc5e34a981545c9357c3e401da5dff007a52d7ae39b896ccc327a855e6db5cc9",
-      "bytes": 16167
+      "sha256": "94631ddbc837cb4f13f086c323966b860819adc8d5d1e68b83269f64cc22b30c",
+      "bytes": 20866
     },
     {
       "path": "backend/app/presentation/routes/__init__.py",
@@ -280,13 +295,13 @@
     },
     {
       "path": "backend/app/presentation/routes/system.py",
-      "sha256": "efaaf15c19f61db46f9257c1cb560ba40334d5ebfe2543becc2b4a767e01c3d7",
-      "bytes": 3820
+      "sha256": "888305ccb64d0a978df6fcac7b9bc34b943e6b39d38be7c695727b066c311ce2",
+      "bytes": 6278
     },
     {
       "path": "backend/app/presentation/schemas.py",
-      "sha256": "38c295431518485bc15f59c111ba0be54b38e1a344dd96642c904da5f46bd720",
-      "bytes": 4390
+      "sha256": "33e661dd376ca2175335a57a0368d127a7e687bb86a6d5ae8db752befb36f3c3",
+      "bytes": 4929
     },
     {
       "path": "backend/evaluation/independent_manual.template.jsonl",
@@ -320,12 +335,12 @@
     },
     {
       "path": "backend/scripts/catalog_admin.py",
-      "sha256": "d0d6e2412654bd50bf5a657fed5ae1fcf0f28d82966a18bd753266731f054320",
-      "bytes": 4742
+      "sha256": "37d9e656a90a802cde9a94e7c6cc29df3fc0deca9d3aa32a92781048239c07f6",
+      "bytes": 4880
     },
     {
       "path": "backend/scripts/change_operator_password.py",
-      "sha256": "5cfa3ae08c0f52dc18794e0263775c2ae39405401a61dc916bdeab4e9ec1a901",
+      "sha256": "40c5207411f4a2c15d9f160c9fbf539aac407630b6e0605e804e3d47060898f1",
       "bytes": 2741
     },
     {
@@ -349,6 +364,11 @@
       "bytes": 13354
     },
     {
+      "path": "backend/scripts/local_setup.py",
+      "sha256": "57f7a31ad156757154e41ea14d250443909747f2891df4a2ff6843fc71a1c811",
+      "bytes": 1933
+    },
+    {
       "path": "backend/scripts/measurement_provenance.py",
       "sha256": "fcf74db28f372c0f62e3aedc788a8434129cf5a43c9d6e5617f9092e4c10425b",
       "bytes": 1022
@@ -360,7 +380,7 @@
     },
     {
       "path": "backend/scripts/setup_env.py",
-      "sha256": "798b41d81152504cf99e9c357b5996e982043b5f93234c3142711d74dfa515f2",
+      "sha256": "489ec8c10403c07607f97fbb10e29e4ae70a3e4401978b34eb7839c7643d5023",
       "bytes": 3332
     },
     {
@@ -409,6 +429,11 @@
       "bytes": 1892
     },
     {
+      "path": "backend/tests/integration/test_v4_installation.py",
+      "sha256": "a3814d730ec2261953808b6573f5b5be00a4299f9d6a3ce8e9925de6adbcb54d",
+      "bytes": 16652
+    },
+    {
       "path": "backend/tests/unit/test_catalog.py",
       "sha256": "13537b3d539f4a84c948c1737c0ee35de6cc0ee21a96e28a0e969eae62cdc885",
       "bytes": 18497
@@ -435,8 +460,8 @@
     },
     {
       "path": "backend/tests/unit/test_groq_and_docs_regressions.py",
-      "sha256": "9e7625322120417e16b1c24905fe48ea46965e5501ae8e003070974ddd8dfd8a",
-      "bytes": 8017
+      "sha256": "52bbf9cfa3f572c2ec2d88a65daed27bdd83a04c1921343e2b31d531664ca5fb",
+      "bytes": 8123
     },
     {
       "path": "backend/tests/unit/test_layout_chunker_and_hybrid_ranker.py",
@@ -445,8 +470,8 @@
     },
     {
       "path": "backend/tests/unit/test_operator_setup.py",
-      "sha256": "4bae3a88c0c7da8d4077bb22732eb8fa43d4c29f30f4bec46c2a4b5a7a4042ff",
-      "bytes": 3723
+      "sha256": "7661bc0e41a70286126fe644a46f29d83ccf6e09888cd8c8b155a9305d670fbc",
+      "bytes": 3864
     },
     {
       "path": "backend/tests/unit/test_pdf_geometry_and_chunk_bounds.py",
@@ -455,8 +480,8 @@
     },
     {
       "path": "backend/tests/unit/test_provider_adapters.py",
-      "sha256": "a25ec6a8f126c98df6642d53e5a4cf80b9025d3317249533cd2ad240f7b610fd",
-      "bytes": 8341
+      "sha256": "a238eae7db783388bab1a9dc14dd5d464a7214b3db9f5c283423bb8794320e71",
+      "bytes": 8538
     },
     {
       "path": "backend/tests/unit/test_resilience_and_rag_guardrails.py",
@@ -484,14 +509,19 @@
       "bytes": 5786
     },
     {
+      "path": "docs/IMPLEMENTACION_V4.md",
+      "sha256": "29701d9287b5befd8af0aa035e6c8acd54e9948a951c5fca92aa831c6c7bb929",
+      "bytes": 5957
+    },
+    {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
       "sha256": "021ef958e79e025fae374e814f043a147657c61fe6d60f59516bb586f79a3d8d",
       "bytes": 7906
     },
     {
       "path": "frontend/api-docs-init.js",
-      "sha256": "d387d0844addd2581f39805f7d4efb8a1bca0d1b6bb16fec085cd1b33dde81a1",
-      "bytes": 1115
+      "sha256": "b43f8a3802d9379e3f83493eb13db36a9d02bc420cfca39761435d808d52bffe",
+      "bytes": 1149
     },
     {
       "path": "frontend/api-docs.html",
@@ -500,13 +530,18 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "14195625b994f4c13c582e4fc8ce81802319228a2ecd392d0a7b56c2817285d5",
-      "bytes": 46730
+      "sha256": "bfd349c3298c5ca9421b30f663c0fa507f712274bb648ebb4e2452b03ddbfe28",
+      "bytes": 54333
     },
     {
       "path": "frontend/index.html",
-      "sha256": "22b42d270e8954b573676c7a33873e1cf624e1bb7eda42601b44614f78eab8b9",
-      "bytes": 24803
+      "sha256": "5d3af7dd8e1ad2f52f1bad4a00a506b9fbf25c4a7c502c5ffdcb9ae0643e0048",
+      "bytes": 27799
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "4fe16140ccb8ef72163e1026fb411ba01b49c7f003e65b55793cc4e730920ad1",
+      "bytes": 124
     },
     {
       "path": "frontend/styles.css",
@@ -514,9 +549,14 @@
       "bytes": 86365
     },
     {
+      "path": "frontend/tests/installation.spec.cjs",
+      "sha256": "11034575ff12ef31b68ce0e2e8a96196eaa52c6b97cfb439253be2bfbcbdebc4",
+      "bytes": 5476
+    },
+    {
       "path": "frontend/tests/workbench.spec.cjs",
-      "sha256": "d968bf989691a17a760e0c84b1285287b8bee9ab330e84881a7e33a76feb4e59",
-      "bytes": 13419
+      "sha256": "6d3a737c24a57b5775149bbf2420e9f77cdcebe8396bac9a1f0735785fb888f2",
+      "bytes": 13501
     },
     {
       "path": "frontend/vendor/dompurify-3.4.17.js",
@@ -565,18 +605,28 @@
     },
     {
       "path": "ops/update-server.sh",
-      "sha256": "352da31da1650c81bcf53c3d5f6c80999290ecd2b465db2bb6930f1d4fc8d2c9",
-      "bytes": 3331
+      "sha256": "b51a93d7531422771435cf49d6834956eb75f0c6664d102d19e2ac8b0d2cbb06",
+      "bytes": 3515
     },
     {
       "path": "pyproject.toml",
-      "sha256": "f2c8cdadaa73eea40c5b4fdd6c66a6eacb2d4e6d9d028274301d7cc25a6f424e",
+      "sha256": "33d3d45111b998dbf9b21a72dd437c785bf60db7a7694821a1a8f39852e301d6",
       "bytes": 624
     },
     {
       "path": "requirements.lock",
       "sha256": "249153c4ec0d666814efeb5b0830e0fddc033e150c12c99ffbf82aa3938aeca6",
       "bytes": 142126
+    },
+    {
+      "path": "setup-local.ps1",
+      "sha256": "3c69bf8df9f499fd11eccf775e245f9f21cc189628f94f2a9644e3268b8280eb",
+      "bytes": 228
+    },
+    {
+      "path": "start-dev.ps1",
+      "sha256": "399ffadfb207f5ed3054858636da99410e66c22e17cd42786eefc55db5f59669",
+      "bytes": 589
     },
     {
       "path": "start-local.ps1",

@@ -100,7 +100,7 @@ test("workbench security and provenance in a real browser", async (t) => {
       assert.equal(await page.locator("#input-openai-model").inputValue(),"openai/gpt-oss-120b");
       await page.locator('#provider-form button[type="submit"]').click();
       await page.waitForFunction(()=>document.getElementById("label-activity").textContent==="LISTO");
-      assert.deepEqual(posted,{llm_provider:"openai",openai_model:"openai/gpt-oss-120b"});
+      assert.deepEqual(posted,{llm_provider:"openai",openai_model:"openai/gpt-oss-120b", llm_supports_images:false, openai_response_format:"auto", approve_endpoint:false});
       assert.deepEqual(errors,[]);
     } finally {
       await context.close();

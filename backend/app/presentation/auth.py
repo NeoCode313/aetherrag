@@ -32,12 +32,14 @@ class LoginRequest(BaseModel):
 def settings_for(request: Request):
     from app.presentation.dependencies import get_container
     resolver = request.app.dependency_overrides.get(get_container, get_container)
-    return resolver().settings
+    container = resolver()
+    container.refresh_private_settings()
+    return container.settings
 
 
 def serializer(settings):
     if len(settings.session_secret) < 32 or not settings.operator_password_hash:
-        raise HTTPException(503, "Configure las credenciales del operador y SESSION_SECRET")
+        raise HTTPException(401, "Configura el propietario de esta instalación antes de iniciar sesión")
     return URLSafeTimedSerializer(settings.session_secret, salt="aetherrag-v2-session")
 
 
@@ -48,7 +50,7 @@ def session(request: Request, *, mutate: bool = False) -> dict:
     if not settings.auth_enabled:
         if settings.environment == "production":
             raise HTTPException(503, "La autenticación es obligatoria en producción")
-        cookie = request.cookies.get("aetherrag_session", "")
+        cookie = request.cookies.get(settings.session_cookie_name, "")
         if cookie and len(settings.session_secret) >= 32 and settings.operator_password_hash:
             try:
                 value = serializer(settings).loads(cookie, max_age=settings.session_ttl_seconds)
@@ -63,13 +65,13 @@ def session(request: Request, *, mutate: bool = False) -> dict:
                 pass
         return {"user": "development", "role": "admin", "csrf": ""}
     try:
-        value = serializer(settings).loads(request.cookies.get("aetherrag_session", ""),
+        value = serializer(settings).loads(request.cookies.get(settings.session_cookie_name, ""),
                                            max_age=settings.session_ttl_seconds)
     except (BadSignature, SignatureExpired):
         raise HTTPException(401, "Sesión requerida o vencida")
     if not isinstance(value, dict):
         raise HTTPException(401, "Sesión inválida")
-    if not _same_secret(value.get("user"), settings.operator_username) or value.get("role") != "admin":
+    if (settings.installation_id and value.get("installation") != settings.installation_id) or not _same_secret(value.get("user"), settings.operator_username) or value.get("role") != "admin":
         raise HTTPException(403, "Sesión sin permiso")
     if mutate and (not value.get("csrf") or not _same_secret(
         request.headers.get("X-CSRF-Token", ""), value.get("csrf"))):
@@ -97,9 +99,9 @@ def login(payload: LoginRequest, request: Request):
         valid = False
     if not _same_secret(payload.username, settings.operator_username) or not valid:
         raise HTTPException(401, "Credenciales inválidas")
-    value = {"user": settings.operator_username, "role": "admin", "csrf": secrets.token_urlsafe(32)}
+    value = {"user": settings.operator_username, "role": "admin", "csrf": secrets.token_urlsafe(32), "installation": settings.installation_id}
     response = JSONResponse({"user": value["user"], "csrf_token": value["csrf"]})
-    response.set_cookie("aetherrag_session", signer.dumps(value), httponly=True,
+    response.set_cookie(settings.session_cookie_name, signer.dumps(value), httponly=True,
                         secure=settings.session_secure, samesite="strict",
                         max_age=settings.session_ttl_seconds, path="/")
     return response
@@ -115,6 +117,53 @@ def get_session(request: Request):
 def logout(request: Request):
     session(request, mutate=True)
     response = JSONResponse({"status": "logged_out"})
-    response.delete_cookie("aetherrag_session", path="/")
+    response.delete_cookie(settings_for(request).session_cookie_name, path="/")
     return response
 
+
+class RegistrationRequest(LoginRequest):
+    setup_token: str = Field(default="", max_length=256)
+
+
+def container_for(request):
+    from app.presentation.dependencies import get_container
+    return request.app.dependency_overrides.get(get_container, get_container)()
+
+
+def direct_loopback(request: Request):
+    # A hostile Host (DNS rebinding) or a remote/reverse-proxied client cannot claim setup.
+    return (request.client is not None and request.client.host in {"127.0.0.1", "::1"}
+            and request.url.hostname in {"localhost", "127.0.0.1", "::1"})
+
+
+@router.get("/setup")
+def setup_status(request: Request):
+    container = container_for(request)
+    state = container.identity.read()
+    return {"registration_required": not bool(state.get("owner")),
+            "password_min_length": 15, "registration_mode": "installation_owner",
+            "local_registration_available": container.settings.environment != "production" and direct_loopback(request)}
+
+
+@router.post("/register", status_code=201)
+def register(payload: RegistrationRequest, request: Request):
+    if not 15 <= len(payload.password) <= 512:
+        raise HTTPException(422, "Usa una contraseña propia de al menos 15 caracteres")
+    if (not payload.username or not payload.username.isascii()
+            or not all(c.isalnum() or c in "_.-" for c in payload.username)):
+        raise HTTPException(422, "Usuario: letras, números, punto, guion o guion bajo")
+    origin = request.headers.get("origin")
+    if origin and origin != str(request.base_url).rstrip("/"):
+        raise HTTPException(403, "Origen no autorizado")
+    container = container_for(request)
+    if container.settings.environment == "production":
+        raise HTTPException(403, "Configura el primer propietario con setup_env.py en producción")
+    state = container.identity.read()
+    if state.get("owner"):
+        raise HTTPException(409, "El propietario ya existe. Inicia sesión.")
+    if not direct_loopback(request) and not _same_secret(payload.setup_token, state.get("setup_token")):
+        raise HTTPException(422, "Código de instalación inválido")
+    token = state["setup_token"] if direct_loopback(request) else payload.setup_token
+    container.identity.register(payload.username, PasswordHasher().hash(payload.password), token)
+    container.refresh_private_settings()
+    return {"status": "registered", "user": payload.username}

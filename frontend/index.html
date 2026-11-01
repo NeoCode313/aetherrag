@@ -32,6 +32,7 @@
     </div>
 
     <div class="topbar-actions">
+      <button type="button" class="btn btn-glass hidden" id="btn-recover-index">Recuperar índice anterior</button>
       <button type="button" class="btn btn-glass" id="btn-session">Comprobando sesión…</button>
       <button type="button" class="btn btn-ghost hidden" id="btn-logout">Cerrar sesión</button>
       <div class="telemetry-pills">
@@ -371,7 +372,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="modal-header">
         <div><h3 id="settings-title">Generador de respuestas</h3>
-          <p>Selecciona un proveedor ya configurado por el administrador.</p>
+          <p>Configura tu proveedor. Las claves se guardan de forma privada en esta instalación.</p>
           <p id="embedding-model-note">El proveedor de embeddings permanece fijo para conservar la compatibilidad del índice.</p>
           <p id="provider-config-note">Las claves y endpoints se configuran de forma privada en el servidor.</p>
         </div>
@@ -385,6 +386,7 @@
             <div class="provider-box"><strong>Ollama</strong><span>Servidor local configurado por el administrador</span></div></label>
           <label class="provider-option"><input type="radio" name="llm_provider" value="openai" />
             <div class="provider-box"><strong>OpenAI / Compatible</strong><span>Endpoint y credenciales del servidor</span></div></label>
+          <label class="provider-option"><input type="radio" name="llm_provider" value="anthropic" /><div class="provider-box"><strong>Claude / Anthropic</strong><span>API nativa</span></div></label>
           <label class="provider-option"><input type="radio" name="llm_provider" value="local" />
             <div class="provider-box"><strong>Evidencia extractiva local</strong><span>Sin generación ni interpretación visual</span></div></label>
         </div>
@@ -407,6 +409,8 @@
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq-qwen">⚡ Groq (Qwen 3.8 27B)</button>
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq">⚡ Groq (Llama 3.3 70B)</button>
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-openai">🌐 OpenAI Oficial</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-xai">Grok / xAI</button>
+              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-lmstudio">LM Studio / vLLM</button>
             </div>
           </div>
           <input type="text" id="input-openai-endpoint" class="text-input mono" value="https://api.groq.com/openai/v1" />
@@ -415,6 +419,15 @@
           <label class="field-label" for="input-openai-model">Modelo OpenAI / Compatible autorizado</label>
           <input type="text" id="input-openai-model" class="text-input mono" value="qwen/qwen3.8-27b" />
         </div>
+        <div class="provider-fields hidden" id="fields-anthropic">
+          <label class="field-label">API key Claude/Anthropic<input type="password" id="input-anthropic-token" class="text-input" autocomplete="off" /></label>
+          <label class="field-label">Modelo de tu cuenta<input id="input-anthropic-model" class="text-input" placeholder="Identificador exacto del modelo" /></label>
+        </div>
+        <label class="field-label"><input type="checkbox" id="input-supports-images" /> El modelo admite imágenes</label>
+        <label class="field-label">Formato de API compatible<select id="input-response-format" class="text-input"><option value="auto">Automático por perfil conocido</option><option value="json_schema">JSON Schema</option><option value="json_object">JSON básico y validación</option></select></label>
+        <label class="field-label"><input type="checkbox" id="input-approve-endpoint" /> Confío en este destino HTTPS personalizado y autorizo enviarle consultas y evidencia</label>
+        <p>API compatible: usa la URL base hasta /v1. Ollama nativo: sin /api al final. En Docker, para un modelo en el PC usa host.docker.internal en lugar de localhost.</p>
+        <button type="button" class="btn btn-ghost" id="btn-test-provider">Probar el proveedor guardado con un ejemplo sintético</button><p id="provider-test-message" role="status"></p>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="btn-cancel-settings">Cancelar</button>
           <button type="submit" class="btn btn-primary">Aplicar generador</button>
@@ -432,6 +445,15 @@
         </div>
         <button type="button" class="btn btn-icon" id="btn-close-login" aria-label="Cerrar ventana de acceso" title="Cerrar (Esc)">✕</button>
       </div>
+      <form id="register-form" class="modal-body login-form hidden">
+        <p>Crea el propietario de esta instalación. No existe una contraseña compartida.</p>
+        <p>En tu equipo puedes crear el propietario directamente. Usa una contraseña propia que puedas recordar.</p>
+        <label class="field-label">Usuario<input id="register-username" class="text-input" value="admin" autocomplete="username" required /></label>
+        <label class="field-label">Contraseña (mínimo 15 caracteres)<input id="register-password" type="password" class="text-input" autocomplete="new-password" minlength="15" required /></label>
+        <label class="field-label">Repetir contraseña<input id="register-confirm" type="password" class="text-input" autocomplete="new-password" minlength="15" required /></label>
+        <p id="setup-auth-message" role="status">Comprobando el acceso local de esta instalación…</p>
+        <button type="submit" id="btn-register" class="btn btn-primary" disabled>Crear propietario e iniciar sesión</button>
+      </form>
       <form id="login-form" class="modal-body login-form">
         <label class="field-label" for="login-username">Usuario</label>
         <input id="login-username" class="text-input" autocomplete="username" required />

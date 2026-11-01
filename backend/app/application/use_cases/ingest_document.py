@@ -33,16 +33,19 @@ class IngestDocumentUseCase:
         return self.submit_stream(file_name, io.BytesIO(data), force_reingest, idempotency_key)
 
     def submit_stream(self, file_name: str, stream, force_reingest: bool = False,
-                      idempotency_key: str | None = None, generation=None):
+                      idempotency_key: str | None = None, generation=None, administrative=False):
         clean_name = (file_name or "manual.pdf").strip()
         if not clean_name.lower().endswith(".pdf") or len(clean_name) > 512:
             raise ValidationError("Se requiere un nombre PDF válido de hasta 512 caracteres")
-        source_id, sha, size = self.storage.save_stream(stream, self.max_upload_bytes)
         target = generation or self.catalog.active_generation()
         if not target:
             raise ConflictError("No hay generación de índice activa")
+        profile = self.catalog.profile_by_id(target["profile_id"]) or {}
+        if profile.get("pipeline_version", self.catalog.pipeline_version) != self.catalog.pipeline_version:
+            raise ConflictError("El índice requiere recuperación. Inicia sesión y pulsa Recuperar índice anterior.")
+        source_id, sha, size = self.storage.save_stream(stream, self.max_upload_bytes)
         return self.catalog.submit(clean_name, sha, size, source_id, target["generation_id"],
-                                   target["profile_id"], force_reingest, idempotency_key)
+                                   target["profile_id"], force_reingest, idempotency_key, administrative=administrative)
 
     def execute_job(self, job_id: str):
         owner = "worker_" + uuid.uuid4().hex

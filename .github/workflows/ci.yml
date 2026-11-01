@@ -30,6 +30,12 @@ jobs:
         run: python -B backend/scripts/evaluate_rag_metrics.py --synthetic-demo --dataset backend/evaluation/synthetic_suite_v3.jsonl --output synthetic-results.json
       - name: Concurrent local integrity and latency budgets
         run: python -B backend/scripts/load_smoke.py --count 100 --output load-results.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --prefix frontend --ignore-scripts --no-audit --no-fund
+      - run: npx --prefix frontend playwright install --with-deps chromium
+      - run: node --test frontend/tests/*.spec.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -19,7 +19,7 @@ def reindex(container, generation_id: str) -> list[str]:
         context = container.catalog.job_context(document.job_id)
         with container.storage.upload_path(context["source_id"]).open("rb") as stream:
             job, _ = container.ingest_use_case.submit_stream(
-                document.file_name, stream, generation=target)
+                document.file_name, stream, generation=target, administrative=True)
         submitted.append(job.job_id)
     return submitted
 
@@ -67,6 +67,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("generations")
+    sub.add_parser("recover-index")
     build = sub.add_parser("reindex")
     build.add_argument("generation_id")
     activate = sub.add_parser("cutover")
@@ -79,7 +80,16 @@ def main():
     args = parser.parse_args()
     container = AppContainer()
     try:
-        if args.command == "generations":
+        if args.command == "recover-index":
+            from app.application.services.index_recovery import start_recovery
+            result = start_recovery(container)
+            thread = getattr(container, "_recovery_thread", None)
+            if thread:
+                thread.join()
+                result = container.catalog.get_setting("index_recovery")
+            if result["status"] != "completed":
+                raise ConflictError("La recuperación no se completó; no se activó un corpus incompleto")
+        elif args.command == "generations":
             result = container.catalog.list_generations()
         elif args.command == "reindex":
             result = {"job_ids": reindex(container, args.generation_id)}

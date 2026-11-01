@@ -15,8 +15,8 @@ from dotenv import dotenv_values
 
 
 def rotate(path: Path, password: str) -> None:
-    if not 12 <= len(password) <= 512:
-        raise ValueError("Use a new application password of 12-512 characters")
+    if not 15 <= len(password) <= 512:
+        raise ValueError("Use a new application password of 15-512 characters")
     if path.is_symlink() or not path.is_file():
         raise ValueError("Select an existing regular private environment file")
     source = path.read_text(encoding="utf-8")

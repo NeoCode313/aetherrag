@@ -333,7 +333,7 @@ class Catalog:
     def submit(
         self, file_name: str, sha256: str, size_bytes: int, source_id: str,
         generation_id: str, profile_id: str, force: bool = False,
-        idempotency_key: str | None = None,
+        idempotency_key: str | None = None, administrative: bool = False,
     ) -> tuple[IngestionJob, bool]:
         if len(sha256) != 64 or any(c not in "0123456789abcdef" for c in sha256.lower()):
             raise ValidationError("Content SHA-256 must be a hexadecimal digest")
@@ -344,14 +344,14 @@ class Catalog:
         sha256 = sha256.lower()
         with self._tx() as connection:
             control = self._control(connection, lock=True)
-            if control["admissions_paused"]:
+            if control["admissions_paused"] and not administrative:
                 raise CapacityError("Catalog admissions are paused for maintenance")
             generation = connection.execute(select(s.generations).where(s.generations.c.generation_id == generation_id)).mappings().first()
             if not generation or generation["profile_id"] != profile_id or generation["status"] == "retired":
                 raise ConflictError("The job profile and writable generation must match")
             profile = connection.scalar(select(s.profiles.c.spec).where(s.profiles.c.profile_id == profile_id))
             if profile.get("pipeline_version", self.pipeline_version) != self.pipeline_version:
-                raise ConflictError("The running pipeline version differs from the target generation profile")
+                raise ConflictError("El índice requiere recuperación. Inicia sesión y pulsa Recuperar índice anterior.")
             if idempotency_key:
                 previous = connection.execute(select(s.idempotency).where(
                     s.idempotency.c.workspace_id == self.workspace_id,

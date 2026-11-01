@@ -14,7 +14,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (target.origin !== window.location.origin) throw new Error("La documentación solo consulta esta API.");
       request.credentials = "same-origin";
       if (!["GET", "HEAD", "OPTIONS"].includes(String(request.method || "GET").toUpperCase())
-          && target.pathname !== "/api/v1/auth/login") {
+          && !["/api/v1/auth/login", "/api/v1/auth/register"].includes(target.pathname)) {
         const response = await fetch("/api/v1/auth/session", { credentials: "same-origin" });
         if (!response.ok) throw new Error("Inicia sesión en la aplicación o usa /api/v1/auth/login antes de modificar datos.");
         const session = await response.json();
