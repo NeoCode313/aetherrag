@@ -217,7 +217,7 @@ class DefensivePromptBuilder:
         visual_refs: list[str] = []
         quotes: list[str] = []
         prose_quotes: list[str] = []
-        table_quotes: list[str] = []
+        table_quotes: list[tuple[str, set[str]]] = []
         for ref in claim.evidence_refs:
             if ref.evidence_id in bundle.alias_to_chunk:
                 source = bundle.alias_to_chunk[ref.evidence_id].chunk.text
@@ -228,7 +228,13 @@ class DefensivePromptBuilder:
                 if bundle.alias_to_chunk[ref.evidence_id].chunk.kind.value != "table":
                     prose_quotes.append(quote)
                 else:
-                    table_quotes.append(quote)
+                    lines = source.splitlines()
+                    shared = set(extract_technical_codes(lines[0])) if lines and TABLE_CAPTION_RE.match(lines[0]) else set()
+                    # A code explicitly used in any row is a row key, even if
+                    # the caption also names it (e.g. a comparison of devices).
+                    row_codes = set(extract_technical_codes("\n".join(
+                        line for line in lines if line.strip().startswith("|"))))
+                    table_quotes.append((quote, shared - row_codes))
                 text_refs.append(ref.evidence_id)
             elif ref.evidence_id in bundle.sent_visual_ids:
                 region = ref.visual_region
@@ -249,9 +255,7 @@ class DefensivePromptBuilder:
                 return False, [], []
             # A parameter attributed to one table row cannot borrow a magnitude from another row.
             table_rows = []
-            for quote in table_quotes:
-                heading = quote.splitlines()[0]
-                shared = set(extract_technical_codes(heading)) if TABLE_CAPTION_RE.match(heading) else set()
+            for quote, shared in table_quotes:
                 table_rows.extend((line, shared) for line in quote.splitlines()
                                   if line.strip().startswith("|") and "---" not in line)
             prose_supports = bool(prose_quotes) and all(re.search(

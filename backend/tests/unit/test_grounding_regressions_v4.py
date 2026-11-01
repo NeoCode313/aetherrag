@@ -96,6 +96,18 @@ def test_table_caption_numbers_cannot_replace_the_value_of_a_row():
     assert not builder._check_claim(claim,context)[0]
 
 
+@pytest.mark.parametrize("quote", [None,"182 MW"])
+def test_comparative_caption_does_not_override_equipment_keys_in_rows(quote):
+    source = ("Tabla 1: Comparación HX-900 y HX-800.\n| Equipo | Potencia |\n"
+              "| --- | --- |\n| HX-900 | 145 MW |\n| HX-800 | 182 MW |")
+    chunk = Chunk("table","doc","manual.pdf",1,ChunkKind.TABLE,source,BoundingBox(.1,.1,.9,.5))
+    builder = DefensivePromptBuilder()
+    context = builder.build("potencia HX-900",[ScoredChunk(chunk,.02,dense_score=.8)])
+    claim = GeneratedClaim("La potencia de HX-900 es 182 MW.",
+                           [EvidenceReference("E1",quote=quote or source)])
+    assert not builder._check_claim(claim,context)[0]
+
+
 def test_equipment_identifier_prefix_still_cannot_borrow_another_codes_value():
     source = "La presión de AC-301/2 es 115 bar."
     chunk = Chunk("c", "d", "manual.pdf", 1, ChunkKind.TEXT, source, BoundingBox(.1,.1,.9,.4))

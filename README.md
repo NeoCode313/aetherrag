@@ -213,7 +213,7 @@ Las peticiones explícitas de figuras, tablas o páginas enriquecen ese ranking 
 
 **Decisión:** el proveedor devuelve afirmaciones con referencias explícitas. El servidor resuelve citas y verifica spans, identificadores, números, unidades y comparadores reconocidos. Las fuentes textuales `E` se distinguen de imágenes `F` realmente enviadas.
 
-Una cita breve de una celda solo hereda su fila única y el título literal de esa misma tabla. Un equipo indicado en el título puede identificar sus filas; los valores y códigos específicos de una fila deben seguir sustentándose en ella. Se prueban el rechazo de cruces entre filas/tablas y el caso válido de especificaciones con el equipo en el título.
+Una cita breve de una celda solo hereda su fila única y el título literal de esa misma tabla. Un equipo indicado en el título puede identificar sus filas si su código no actúa como clave explícita de las filas. Los valores y códigos específicos de una fila deben seguir sustentándose en ella; un título comparativo no permite intercambiar equipos. Se prueban el rechazo de cruces entre filas/tablas y el caso válido de especificaciones con el equipo en el título.
 
 **Motivo:** una respuesta fluida puede inventar referencias o mezclar filas. Se conserva la parte respaldada y se comunica la evidencia insuficiente. **Consecuencia:** estas comprobaciones no son un modelo general de implicación semántica; una cita real no prueba por sí sola la corrección de una interpretación. No se presentan los diagnósticos como una puntuación certificada de fidelidad.
 
