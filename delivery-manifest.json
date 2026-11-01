@@ -605,13 +605,13 @@
     },
     {
       "path": "frontend-react/src/components/ProviderModal.tsx",
-      "sha256": "4d5beddceb48294fdb3100755aa386edd4434a431bdac604572451920e0b5ede",
-      "bytes": 7980
+      "sha256": "8833e2ed03df2f9f285204d393c8ccb2b1cecc7b9c2524639b0cbf36353b7d16",
+      "bytes": 7992
     },
     {
       "path": "frontend-react/src/components/Topbar.tsx",
-      "sha256": "e0f92f831ba84839cf88b0ea43c5bfa1182d18bcbebed1eeaa529e92ece62883",
-      "bytes": 3244
+      "sha256": "fc574e1c03f1745bdc51f1753fad7b19f6db3174bca9b6dba6b2e52da711c161",
+      "bytes": 3263
     },
     {
       "path": "frontend-react/src/components/VisualInspector.tsx",
@@ -680,12 +680,12 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "550dbc9de8cf09ddb05b708de61fc19bd8ab82200f345182a6002bcb22d1a579",
-      "bytes": 191547
+      "sha256": "6dee4a66c3c2a07033cb989db1a6144712bb9169f2961b9e4cc78b394993a5bb",
+      "bytes": 191565
     },
     {
       "path": "frontend/index.html",
-      "sha256": "efe65ef2cda952768c8079c77276798be3730ee5f60218fd189643a37c1c11df",
+      "sha256": "7cf7702388a3a2dc3e87b7fcf0d50425f9c2200684d4577cf85ca114854b97ca",
       "bytes": 556
     },
     {

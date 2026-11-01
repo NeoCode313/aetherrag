@@ -23,7 +23,7 @@ export function Topbar({m, theme, onTheme}:{m:Workbench; theme:string; onTheme:(
           <div className="pill" id="pill-cb"><span id="dot-cb" className={'status-dot '+(status?.circuit_breaker_state==='closed' ? 'ok':'err')}/>
             <strong id="label-cb">{(status?.circuit_breaker_state || '—').toUpperCase()}</strong></div>
         </div>
-        <button id="btn-open-settings" className="btn btn-glass" onClick={()=>m.setSettingsOpen(true)}>Generador IA</button>
+        <button id="btn-open-settings" className="btn btn-glass" disabled={!status} onClick={()=>m.setSettingsOpen(true)}>Generador IA</button>
         <button id="btn-session" className="btn btn-glass" onClick={()=>m.setAuth(previous=>({...previous,open:true}))}>{m.user ? 'Sesión: '+m.user : 'Iniciar sesión'}</button>
         <button id="btn-logout" className={'btn btn-ghost '+(!m.user ? 'hidden':'')} onClick={()=>void m.logout()}>Cerrar sesión</button>
         <button id="btn-theme" className="btn btn-icon" aria-label={'Cambiar a tema '+(theme==='dark' ? 'claro':'oscuro')} onClick={onTheme}>{theme==='dark' ? '☀':'☾'}</button>

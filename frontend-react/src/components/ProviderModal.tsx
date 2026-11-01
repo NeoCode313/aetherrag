@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useLayoutEffect, useState} from 'react';
 import type {FormEvent} from 'react';
 import type {Workbench} from '../hooks/useWorkbench';
 import type {Provider, ProviderPayload} from '../types/api';
@@ -10,7 +10,7 @@ export function ProviderModal({m}:{m:Workbench}) {
   const [ollama,setOllama]=useState('http://localhost:11434'), [vision,setVision]=useState(false), [format,setFormat]=useState('auto'), [approve,setApprove]=useState(false);
   const [message,setMessage]=useState(''), [pending,setPending]=useState(false);
   const status=m.status, editable=status?.credentials_editable===true;
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     if (!m.settingsOpen) {setTokens({}); return;}
     const choice=status?.llm_provider || 'local';
     setProvider(choice); setTokens({});setMessage('');setApprove(false);
