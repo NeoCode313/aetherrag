@@ -36,7 +36,9 @@ RUN python -B backend/scripts/download_semantic_model.py --directory /opt/aether
 RUN groupadd --gid 10001 aetherrag \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin aetherrag \
     && mkdir -p /workspace/data \
-    && chown -R 10001:10001 /workspace/data
+    && chown -R 10001:10001 /workspace/data \
+    && chmod -R a+rX /workspace/backend /workspace/frontend \
+    && chmod a+r /workspace/.env.example
 
 USER 10001:10001
 

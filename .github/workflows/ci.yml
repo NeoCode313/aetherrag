@@ -73,6 +73,8 @@ jobs:
           CI_OPERATOR_PASSWORD: OnlyForThisEphemeralCIStack-48291
         run: python backend/scripts/setup_env.py --password-env CI_OPERATOR_PASSWORD
       - run: docker compose config --quiet
+      - name: Verify the non-root runtime can use a restrictive source checkout
+        run: chmod -R go-rwx backend frontend .env.example
       - run: docker compose up --build -d
       - name: Run real broker and vector-store integration
         env:

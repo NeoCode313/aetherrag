@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "3c051950c57c8401e50086396c9f4fa2a122a9399a1bd58028f7e11aca880b41",
-      "bytes": 3666
+      "sha256": "67f71258ea58eb6861a5caaf7833e17c1a3aa5418d3dfd4ce430a89df00e7834",
+      "bytes": 3805
     },
     {
       "path": ".gitignore",
@@ -35,8 +35,8 @@
     },
     {
       "path": "Dockerfile",
-      "sha256": "0af1eee948f3ae494186d2c3f86258462794481ebf4fce0b7f476693e6abdc81",
-      "bytes": 1793
+      "sha256": "8642f5ba24e4dc77cde524d879e8b66324e824cf0b08c587778282ebed90e4e3",
+      "bytes": 1898
     },
     {
       "path": "README.md",
