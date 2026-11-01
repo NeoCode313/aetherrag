@@ -205,7 +205,7 @@ async function refreshSystemStatus() {
   byId("btn-preset-groq-qwen").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
   byId("btn-preset-groq").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
   byId("btn-preset-openai").disabled = !state.credentialsEditable && data.openai_backend !== "openai";
-  byId("label-provider").textContent = (data.app_version || "v4") + " · " + (data.build_id || "fixture") + " · " + data.llm_model;
+  byId("label-provider").textContent = (data.environment || "test") + " · v" + (data.app_version || "4") + " · " + (data.build_id || "fixture") + " · " + data.llm_model;
   byId("dot-provider").className = data.provider_ready === false ? "status-dot err" : "status-dot ok";
   byId("label-vector").textContent = `${data.vector_backend} (${data.total_chunks} chunks)`;
   byId("label-cb").textContent = String(data.circuit_breaker_state).toUpperCase();

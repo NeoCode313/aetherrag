@@ -9,6 +9,10 @@
 .coverage
 htmlcov
 data
+backend/data
+**/.private
+**/node_modules
+**/*.log
 output
 tmp
 *.log

@@ -5,8 +5,8 @@
   "files": [
     {
       "path": ".dockerignore",
-      "sha256": "0dad3d336759d52353d45a8962664c44fdf5a9d5b152a2651f821b4f69809b03",
-      "bytes": 237
+      "sha256": "7ac74d6748eb04cdfc5f0dfb6a1356fdcf9440a5502f61ad388d503cc482277f",
+      "bytes": 287
     },
     {
       "path": ".env.example",
@@ -530,8 +530,8 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "bfd349c3298c5ca9421b30f663c0fa507f712274bb648ebb4e2452b03ddbfe28",
-      "bytes": 54333
+      "sha256": "75cdb07ca768c3f4123768616268e004a1163b7a508bab1123ae7221f088d543",
+      "bytes": 54373
     },
     {
       "path": "frontend/index.html",
