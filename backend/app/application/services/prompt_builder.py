@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from app.application.services.evidence_consistency import consistent
 from app.application.services.hybrid_ranker import extract_technical_codes, normalize_technical_text
-from app.application.services.spatial_linker import REFERENCE_RE, FIGURE_ID, ID_END, figure_number_from_caption
+from app.application.services.spatial_linker import REFERENCE_RE, FIGURE_ID, ID_END, TABLE_CAPTION_RE, figure_number_from_caption
 from app.domain.entities import (
     Citation, ConversationTurn, EvidenceReference, GeneratedAnswer, GeneratedClaim,
     RAGMetrics, ScoredChunk, VisualEvidence,
@@ -188,6 +188,11 @@ class DefensivePromptBuilder:
                     if line.strip().startswith("|") and "---" not in line and quote in line]
             if len(rows) == 1:
                 quote = rows[0]
+                # Equipment named by this table's own caption applies to its
+                # rows. Resolve literal caption text, never another table's key.
+                caption = chunk.text.splitlines()[0]
+                if TABLE_CAPTION_RE.match(caption):
+                    quote = caption + "\n" + quote
         return quote
 
     @staticmethod
@@ -212,6 +217,7 @@ class DefensivePromptBuilder:
         visual_refs: list[str] = []
         quotes: list[str] = []
         prose_quotes: list[str] = []
+        table_quotes: list[str] = []
         for ref in claim.evidence_refs:
             if ref.evidence_id in bundle.alias_to_chunk:
                 source = bundle.alias_to_chunk[ref.evidence_id].chunk.text
@@ -221,6 +227,8 @@ class DefensivePromptBuilder:
                 quotes.append(quote)
                 if bundle.alias_to_chunk[ref.evidence_id].chunk.kind.value != "table":
                     prose_quotes.append(quote)
+                else:
+                    table_quotes.append(quote)
                 text_refs.append(ref.evidence_id)
             elif ref.evidence_id in bundle.sent_visual_ids:
                 region = ref.visual_region
@@ -240,15 +248,19 @@ class DefensivePromptBuilder:
                                  normalize_technical_text(corpus).lower()) for code in codes):
                 return False, [], []
             # A parameter attributed to one table row cannot borrow a magnitude from another row.
-            table_rows = [line for quote in quotes for line in quote.splitlines()
-                          if line.strip().startswith("|") and "---" not in line]
+            table_rows = []
+            for quote in table_quotes:
+                heading = quote.splitlines()[0]
+                shared = set(extract_technical_codes(heading)) if TABLE_CAPTION_RE.match(heading) else set()
+                table_rows.extend((line, shared) for line in quote.splitlines()
+                                  if line.strip().startswith("|") and "---" not in line)
             prose_supports = bool(prose_quotes) and all(re.search(
                 r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])", normalize_technical_text(" ".join(prose_quotes)).lower())
                 for code in codes) and consistent(checked_statement, prose_quotes)
             if codes and table_rows and not prose_supports and claim.statement.strip() not in quotes and not any(
-                    all(re.search(r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])", normalize_technical_text(row).lower())
-                        for code in codes) and consistent(checked_statement, [row])
-                    for row in table_rows):
+                    all(code in shared or re.search(r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])",
+                        normalize_technical_text(row).lower()) for code in codes)
+                    and consistent(checked_statement, [row]) for row, shared in table_rows):
                 return False, [], []
             # Detect straightforward near-verbatim polarity reversal. This is not a general NLI model.
             claim_words = set(re.findall(r"[a-z]{3,}", _norm(claim.statement)))

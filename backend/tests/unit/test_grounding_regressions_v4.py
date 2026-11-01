@@ -45,6 +45,57 @@ def test_compound_unit_fragments_are_not_equipment_identifiers():
     ) == ["hx-900", "st-104"]
 
 
+@pytest.mark.parametrize("short_quote", [False, True])
+def test_table_equipment_caption_applies_to_its_own_parameter_rows(short_quote):
+    source = ("Tabla 1: Especificaciones de la turbina HX-900.\n"
+              "| Parámetro | Valor |\n| --- | --- |\n"
+              "| Potencia nominal | 145.0 MW |\n| Salto neto | 182.0 m |")
+    chunk = Chunk("table", "doc", "manual.pdf", 1, ChunkKind.TABLE, source,
+                  BoundingBox(.1,.1,.9,.5))
+    builder = DefensivePromptBuilder()
+    context = builder.build("potencia HX-900", [ScoredChunk(chunk,.02,dense_score=.8)])
+    quote = "145.0 MW" if short_quote else source
+    claim = GeneratedClaim("La potencia nominal de la turbina HX-900 es 145.0 MW.",
+                           [EvidenceReference("E1",quote=quote)])
+    assert builder._check_claim(claim,context)[0]
+
+
+def test_table_caption_cannot_justify_a_fault_value_from_another_row():
+    source = ("Tabla 3: Fallas de HX-900.\n| Código | Presión |\n| --- | --- |\n"
+              "| E-409 | 115 bar |\n| E-512 | 140 bar |")
+    chunk = Chunk("table", "doc", "manual.pdf", 1, ChunkKind.TABLE, source,
+                  BoundingBox(.1,.1,.9,.5))
+    builder = DefensivePromptBuilder()
+    context = builder.build("falla E-409 HX-900", [ScoredChunk(chunk,.02,dense_score=.8)])
+    for quote in (source,"140 bar"):
+        claim = GeneratedClaim("La falla E-409 de HX-900 indica 140 bar.",
+                               [EvidenceReference("E1",quote=quote)])
+        assert not builder._check_claim(claim,context)[0]
+
+
+def test_equipment_caption_from_a_different_table_cannot_lend_its_identity():
+    sources = [f"Tabla {i}: Potencia de HX-{code}.\n| Parámetro | Valor |\n"
+               f"| --- | --- |\n| Potencia | {power} MW |"
+               for i,code,power in ((1,900,145),(2,800,182))]
+    chunks = [Chunk(str(i),"doc","manual.pdf",i,ChunkKind.TABLE,text,BoundingBox(.1,.1,.9,.5))
+              for i,text in enumerate(sources,1)]
+    builder = DefensivePromptBuilder()
+    context = builder.build("potencia HX-900",[ScoredChunk(c,.02,dense_score=.8) for c in chunks])
+    claim = GeneratedClaim("La potencia de HX-900 es 182 MW.",
+        [EvidenceReference(f"E{i}",quote=text) for i,text in enumerate(sources,1)])
+    assert not builder._check_claim(claim,context)[0]
+
+
+def test_table_caption_numbers_cannot_replace_the_value_of_a_row():
+    source = ("Tabla 1: HX-900, máximo de diseño 200 MW.\n| Parámetro | Valor |\n"
+              "| --- | --- |\n| Potencia nominal | 145 MW |")
+    chunk = Chunk("table","doc","manual.pdf",1,ChunkKind.TABLE,source,BoundingBox(.1,.1,.9,.5))
+    builder = DefensivePromptBuilder()
+    context = builder.build("potencia HX-900",[ScoredChunk(chunk,.02,dense_score=.8)])
+    claim = GeneratedClaim("La potencia nominal de HX-900 es 200 MW.",[EvidenceReference("E1",quote=source)])
+    assert not builder._check_claim(claim,context)[0]
+
+
 def test_equipment_identifier_prefix_still_cannot_borrow_another_codes_value():
     source = "La presión de AC-301/2 es 115 bar."
     chunk = Chunk("c", "d", "manual.pdf", 1, ChunkKind.TEXT, source, BoundingBox(.1,.1,.9,.4))
