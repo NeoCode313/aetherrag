@@ -40,8 +40,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "660f2f173ebb754d25b64e5b4d1e1ee5926535db72f95445c014b3e753ad75d5",
-      "bytes": 35758
+      "sha256": "e9b9b27b78a5f8d346d4bcffa935e4ef59ae3ed3a6ae5cdeb6d07a8e45b08cd1",
+      "bytes": 36129
     },
     {
       "path": "backend/app/__init__.py",
@@ -100,8 +100,8 @@
     },
     {
       "path": "backend/app/application/use_cases/query_rag.py",
-      "sha256": "2cded213d95cf7b172d532fa6c10795c8ded1afbc749b0550124d0b0cf44a6b7",
-      "bytes": 12292
+      "sha256": "e6da106134d658aef31175de01a7f1933044755053b0f5cd999c81b411b260a4",
+      "bytes": 13590
     },
     {
       "path": "backend/app/cli.py",
@@ -440,8 +440,8 @@
     },
     {
       "path": "backend/tests/integration/test_layout_context_retrieval.py",
-      "sha256": "06676afa5c1153525f9f0b7c5e9c4166dcd9fa90f7a0e92216d394e7fc3f1ca0",
-      "bytes": 2189
+      "sha256": "ab734586dbdccce327e9b9c14d899fc704599489c8da6940ccb8c61485d454dd",
+      "bytes": 4688
     },
     {
       "path": "backend/tests/integration/test_load_baseline_contract.py",
@@ -575,8 +575,8 @@
     },
     {
       "path": "docs/PERFORMANCE.md",
-      "sha256": "17c4f32ec85a77203025ab50ab073e71f2029d165f56d6f8e7d9656c9262af1a",
-      "bytes": 6388
+      "sha256": "6cdfc62884db20fb0408ef9f03e8ea97a7fc1cdd6d813871a3e07a1b886f512a",
+      "bytes": 6458
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",

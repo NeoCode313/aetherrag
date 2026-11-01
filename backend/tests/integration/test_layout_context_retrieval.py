@@ -2,6 +2,51 @@
 from app.domain.entities import (BoundingBox, Chunk, ChunkKind, LinkedVisual, LinkReason,
     SparseVector, VisualAsset, VisualKind)
 from app.infrastructure.vector_store.qdrant_adapter import QdrantHybridVectorStore
+import pytest
+
+
+@pytest.mark.parametrize("question", [
+    "¿Cuáles son los componentes de la Figura 1 y la potencia y el salto nominal de la Tabla 1?",
+    "¿Cuál es la potencia y el salto nominal de la turbina en la Tabla 1?",
+])
+def test_repeated_figure_captions_do_not_discard_table_values_or_retrieval_scores(tmp_path, question):
+    from app.application.services.hybrid_ranker import HybridRanker
+    from app.application.services.prompt_builder import DefensivePromptBuilder
+    from app.application.use_cases.query_rag import QueryRAGUseCase
+    from app.infrastructure.llm.local_fallback import GroundedExtractiveLLMProvider
+    from app.infrastructure.storage import LocalFileStorage
+    from app.infrastructure.vector_store.sparse_bm25 import HashedLexicalEncoder
+
+    class Embedder:
+        def embed_query(self, _question):
+            return [1.,0.,0.,0.]
+
+    store = QdrantHybridVectorStore(collection_name="repeated_figures", in_memory=True)
+    store.ensure_collection(4)
+    bbox = BoundingBox(.1,.1,.9,.3)
+    chunks = []
+    for page in range(1,9):
+        visual = VisualAsset(f"v-{page}", "run", page, bbox, VisualKind.VECTOR,
+            f"v-{page}.png", caption="Figura 1: Componentes", figure_number=1)
+        chunks.append(Chunk(f"figure-{page}", "doc", "manual.pdf", page, ChunkKind.FIGURE,
+            "Figura 1: Componentes de la turbina: cámara espiral y rodete.", bbox,
+            visuals=[LinkedVisual(visual,0,LinkReason.SELF)]))
+    chunks.append(Chunk("table", "doc", "manual.pdf", 1, ChunkKind.TABLE,
+        "Tabla 1: Especificaciones nominales de la turbina\n| Parámetro | Valor |\n| --- | --- |\n"
+        "| Potencia nominal | 145 MW |\n| Salto nominal | 182 m |",bbox))
+    sparse = HashedLexicalEncoder()
+    try:
+        store.view("repeated_figures",run_id="published").upsert(chunks,
+            [[1.,0.,0.,0.]]*len(chunks),[sparse.encode_document(c.text) for c in chunks])
+        query = QueryRAGUseCase(Embedder(),sparse,store.view("repeated_figures",active_run_ids=["published"]),
+            HybridRanker(),DefensivePromptBuilder(),GroundedExtractiveLLMProvider(),LocalFileStorage(tmp_path))
+        answer = query.execute(question,document_ids=["doc"])
+        assert not answer.abstained
+        assert "145 MW" in answer.answer and "182 m" in answer.answer
+        assert answer.metrics.max_cosine_similarity > .9
+        assert any(citation.chunk_id=="table" for citation in answer.citations)
+    finally:
+        store.client.close()
 
 
 def test_layout_context_cannot_read_another_document_or_unpublished_run():

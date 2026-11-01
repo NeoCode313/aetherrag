@@ -205,6 +205,8 @@ La versión fijada de PyMuPDF incorpora análisis local de layout en la detecci�
 
 **Decisión:** fusionar ranking denso y ranking disperso con Reciprocal Rank Fusion y dar una señal adicional a identificadores técnicos exactos. Los filtros restringen documentos, generación y ejecuciones publicadas.
 
+Las peticiones explícitas de figuras, tablas o páginas enriquecen ese ranking con contexto de layout. La selección conserva el mejor resultado híbrido y sus puntuaciones, cubre los rótulos solicitados y respeta `top_k`; captions repetidos no deben desplazar toda la evidencia de una tabla. Ese comportamiento se verifica con una regresión sobre Qdrant en memoria.
+
 **Motivo:** la semántica ayuda con preguntas coloquiales; los códigos de fallo y etiquetas requieren coincidencias precisas. RRF evita sumar escalas de puntuación incompatibles. **Consecuencia:** la rama dispersa implementa TF con hashing y saturación, no BM25 convencional con IDF de corpus; hay posibles colisiones. Las similitudes y rankings no son probabilidades de veracidad.
 
 ### ADR-08. Respuesta estructurada y comprobaciones defensivas

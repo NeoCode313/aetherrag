@@ -77,7 +77,10 @@ class QueryRAGUseCase:
         # The injected store captures the authorized active generation for this request.
         dense = self.vector_store.dense_search(query_dense, limit=pool, document_ids=document_ids)
         sparse = self.vector_store.sparse_search(query_sparse, limit=pool, document_ids=document_ids)
-        scored = self.ranker.fuse(dense, sparse, query=contextual_q, top_k=k)
+        # Retain the bounded candidate union so layout enrichment can reuse real
+        # retrieval scores even when a requested table was outside the first k.
+        ranked = self.ranker.fuse(dense, sparse, query=contextual_q, top_k=pool * 2)
+        scored = ranked[:k]
         normalized_q = "".join(c for c in unicodedata.normalize("NFD", clean_q.lower()) if not unicodedata.combining(c))
         overview = bool(re.search(r"de que trata|resumen|resume\b|resumir|objetivo.*documento|overview|summari[sz]e", normalized_q))
         figure_ids = referenced_figure_numbers(clean_q)
@@ -86,16 +89,41 @@ class QueryRAGUseCase:
         pages = [int(value) for value in re.findall(r"(?:pagina|page)\s+(\d{1,4})", normalized_q)]
         if hasattr(self.vector_store, "context_chunks") and (overview or figure_ids or table_ids or pages):
             scope = document_ids or list(dict.fromkeys(item.chunk.document_id for item in scored))
-            context = self.vector_store.context_chunks(scope, pages=[1] if overview else pages,
-                figures_only=not overview, figure_numbers=tuple(figure_ids), limit=k) or []
-            if figure_ids:
-                context = [chunk for chunk in context if any(
-                    visual.asset.figure_number in figure_ids for visual in chunk.visuals)]
-            if table_ids:
-                context += self.vector_store.context_chunks(scope, table_numbers=tuple(table_ids), limit=k) or []
-            ids = {chunk.chunk_id for chunk in context[:k]}
-            scored = ([ScoredChunk(chunk, score=0.0) for chunk in context[:k]] +
-                      [item for item in scored if item.chunk.chunk_id not in ids])[:k]
+            groups = []
+            if overview or (pages and not figure_ids and not table_ids):
+                groups.append(self.vector_store.context_chunks(scope,
+                    pages=[1] if overview else pages, limit=k) or [])
+            # One group per requested label prevents repeated captions from
+            # starving a different figure/table. A table-only request never
+            # injects unrelated figures. Keep all reads under the store's scope.
+            for number in sorted(figure_ids, key=str)[:k]:
+                groups.append(self.vector_store.context_chunks(scope, pages=pages,
+                    figures_only=True, figure_numbers=(number,), limit=k) or [])
+            for number in sorted(table_ids, key=str)[:k]:
+                groups.append(self.vector_store.context_chunks(scope, pages=pages,
+                    table_numbers=(number,), limit=k) or [])
+            by_id = {item.chunk.chunk_id: item for item in ranked}
+            selected, seen = [], set()
+
+            def add(item):
+                if len(selected) < k and item.chunk.chunk_id not in seen:
+                    selected.append(item)
+                    seen.add(item.chunk.chunk_id)
+
+            # Preserve the strongest hybrid hit and its score for the relevance
+            # gate, then cover requested groups before filling by hybrid rank.
+            for item in ranked[:1]:
+                add(item)
+            for group in groups:
+                if group:
+                    chunk = group[0]
+                    add(by_id.get(chunk.chunk_id) or ScoredChunk(chunk, score=0.0))
+            for item in ranked:
+                add(item)
+            for group in groups:
+                for chunk in group:
+                    add(by_id.get(chunk.chunk_id) or ScoredChunk(chunk, score=0.0))
+            scored = selected
         source_preview = [{"document": item.chunk.document_name, "page": item.chunk.page,
                            "snippet": item.chunk.text[:400]} for item in scored[:3]]
         retrieval_ms = int((time.perf_counter() - t_start) * 1000)

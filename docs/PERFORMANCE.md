@@ -24,7 +24,7 @@ Mediciones de la revisión `17603a4`, con el mismo host, 2 GiB de RAM asignada, 
 
 Ambas corridas produjeron 24 páginas, 144 chunks y 24 figuras, con la misma huella de integridad. La comparación no atribuye esa diferencia a una modificación de código: aquí solo cambió la cuota de CPU. La primera preparación del modelo también puede verse afectada por cachés del sistema.
 
-La última fila corresponde al código Python final; cambios posteriores exclusivamente de documentación no alteran ese pipeline. Su huella de integridad también coincide con la base y conserva 24 páginas, 144 chunks y 24 figuras. El pico del contenedor fue aproximadamente 1,01 GiB, con cero swap en esa corrida.
+La última fila corresponde al pipeline de ingesta medido en `2065ac1`. Los cambios posteriores de selección de contexto en consultas, arranque y documentación no modifican esa secuencia de ingesta. Su huella de integridad también coincide con la base y conserva 24 páginas, 144 chunks y 24 figuras. El pico del contenedor fue aproximadamente 1,01 GiB, con cero swap en esa corrida.
 
 La mejora observada de la configuración inicial (154,16 s) a la combinación final (50,66 s) es cercana a 3 veces, principalmente por la cuota de CPU. Comparando únicamente código bajo 3 CPU (50,46 frente a 50,66 s), este ensayo no demuestra una ganancia adicional. No se atribuye la aceleración a diferir previews ni a una caché de celdas. La primera apertura de una vista se paga aparte y se comprueba funcionalmente.
 
