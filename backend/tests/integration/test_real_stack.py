@@ -6,6 +6,7 @@ It uses local extractive models; it does not claim external multimodal-model qua
 """
 import os
 import time
+import unicodedata
 import uuid
 
 import httpx
@@ -62,6 +63,26 @@ def test_real_durable_ingestion_and_authenticated_query(tmp_path):
             assert payload["primary_visual"]
             assert client.get(payload["primary_visual"]["image_url"]).status_code == 200
             assert client.get(payload["primary_visual"]["page_image_url"]).status_code == 200
+            cases = [
+                ("¿Qué significa el código de falla E-409 en el acumulador AC-301, qué componentes intervienen en la Figura 3 y cuál es la acción correctiva?",
+                 "3", ("115", "140", "ac-301", "v-12b")),
+                ("¿Cuáles son los componentes numerados del corte de la turbina en la Figura 1 y cuál es su potencia y salto nominal en la Tabla 1?",
+                 "1", ("145", "182", "camara", "alabes", "rodete", "eje", "cojinete", "tubo")),
+            ]
+            for question, figure, expected in cases:
+                response = client.post("/api/v1/chat/query", json={
+                    "question": question, "document_ids": [document_id],
+                })
+                assert response.status_code == 200
+                answer = response.json()
+                normalized = "".join(char for char in unicodedata.normalize("NFKD", answer["answer"].lower())
+                                     if not unicodedata.combining(char))
+                assert not answer["abstained"]
+                assert all(value in normalized for value in expected)
+                assert answer["citations"] and answer["primary_visual"]
+                assert str(answer["primary_visual"]["figure_number"]) == figure
+                assert client.get(answer["primary_visual"]["image_url"]).status_code == 200
+                assert client.get(answer["primary_visual"]["page_image_url"]).status_code == 200
         finally:
             if cleanup:
                 assert client.delete(f"/api/v1/documents/{document_id}").status_code == 204

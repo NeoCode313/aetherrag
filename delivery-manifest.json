@@ -65,8 +65,8 @@
     },
     {
       "path": "backend/app/application/services/hybrid_ranker.py",
-      "sha256": "a8d6848313a52e7f19956a7bc23f384a1c1b4d62e98ac19d0aab8bb231950aec",
-      "bytes": 4023
+      "sha256": "e7dbfd4302a03c94011fdb218b348932497a48a9ca2489fdcf8dd6004134f5f9",
+      "bytes": 4195
     },
     {
       "path": "backend/app/application/services/index_recovery.py",
@@ -435,8 +435,8 @@
     },
     {
       "path": "backend/tests/integration/test_real_stack.py",
-      "sha256": "6030591576c46e5eff5961ca205d498bc7af1add509685e9215bdafb278906ac",
-      "bytes": 5126
+      "sha256": "a522ba896aa8b0d7a73bbddf6e0de4be0c639640e7fa4b40239d1d3c56282cdd",
+      "bytes": 6600
     },
     {
       "path": "backend/tests/integration/test_semantic_retrieval.py",
@@ -495,8 +495,8 @@
     },
     {
       "path": "backend/tests/unit/test_grounding_regressions_v4.py",
-      "sha256": "e8325ecd2c260123197899938cdacea195139c9d2084760005fe6a12e27620b7",
-      "bytes": 9707
+      "sha256": "080008ecd5a34c619be1fabaf49ae12f58994805b0c96cbef23960d034dc7b93",
+      "bytes": 11757
     },
     {
       "path": "backend/tests/unit/test_layout_chunker_and_hybrid_ranker.py",

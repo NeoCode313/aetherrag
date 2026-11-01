@@ -16,6 +16,44 @@ from app.infrastructure.llm.ollama_adapter import _translate_http_error
 from app.infrastructure.resilience import CircuitBreaker, ResilientExecutor
 
 
+@pytest.mark.parametrize("unit", ["m³/s", "m3/s", "kg/m³", "mm²/s"])
+def test_literal_specification_table_with_compound_units_remains_valid(unit):
+    from app.infrastructure.llm.local_fallback import GroundedExtractiveLLMProvider
+
+    source = ("Tabla 1: Especificaciones de la turbina HX-900.\n"
+              "| Parámetro | Valor |\n| --- | --- |\n"
+              "| Potencia nominal | 145.0 MW |\n"
+              "| Salto neto | 182.0 m |\n"
+              f"| Caudal nominal | 88.5 {unit} |")
+    chunk = Chunk("table", "doc", "manual.pdf", 1, ChunkKind.TABLE, source,
+                  BoundingBox(.1, .1, .9, .5))
+    builder = DefensivePromptBuilder()
+    question = "¿Cuál es la potencia nominal, el salto neto y el caudal de la turbina en la Tabla 1?"
+    context = builder.build(question, [ScoredChunk(chunk, .02, dense_score=.8)])
+    raw = GroundedExtractiveLLMProvider().generate_answer(context.system_instruction, context.user_prompt)
+    answer, abstained, _, citations, _, _ = builder.verify_and_resolve(raw, context, question)
+    assert not abstained
+    assert all(value in answer for value in ("145.0 MW", "182.0 m", f"88.5 {unit}"))
+    assert [citation.chunk_id for citation in citations] == ["table"]
+
+
+def test_compound_unit_fragments_are_not_equipment_identifiers():
+    from app.application.services.hybrid_ranker import extract_technical_codes
+
+    assert extract_technical_codes(
+        "HX-900: caudal 88.5 m³/s, viscosidad 32 mm²/s, densidad 900 kg/m3; ST-104."
+    ) == ["hx-900", "st-104"]
+
+
+def test_equipment_identifier_prefix_still_cannot_borrow_another_codes_value():
+    source = "La presión de AC-301/2 es 115 bar."
+    chunk = Chunk("c", "d", "manual.pdf", 1, ChunkKind.TEXT, source, BoundingBox(.1,.1,.9,.4))
+    builder = DefensivePromptBuilder()
+    context = builder.build("presión AC-301", [ScoredChunk(chunk, .02, dense_score=.8)])
+    claim = GeneratedClaim("La presión de AC-301 es 115 bar.", [EvidenceReference("E1", quote=source)])
+    assert not builder._check_claim(claim, context)[0]
+
+
 def bundle():
     source = "E-409: Presión del acumulador AC-301 inferior a 115 bar. Verificar precarga N2 de 140 bar."
     visual = VisualAsset("fig3", "run", 3, BoundingBox(.1,.4,.9,.8), VisualKind.VECTOR,

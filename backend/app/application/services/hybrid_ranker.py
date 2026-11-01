@@ -23,8 +23,10 @@ from collections.abc import Sequence
 from app.domain.entities import Chunk, ScoredChunk
 
 TECHNICAL_CODE_RE = re.compile(
-    r"\b(?:[A-Z][A-Z0-9]{0,9}(?:[-/][A-Z0-9]{1,12})*[-/]\d[A-Z0-9-]*|"
-    r"[A-Z]{1,6}\d{1,6}|ISO\s+\d+(?:-\d+)?)\b", re.I)
+    # Use the same identifier boundaries as grounding checks. A word boundary
+    # alone misclassifies the m3 in m³/s (NFKC: m3/s) as an equipment code.
+    r"(?<![\w/-])(?:[A-Z][A-Z0-9]{0,9}(?:[-/][A-Z0-9]{1,12})*[-/]\d[A-Z0-9-]*|"
+    r"[A-Z]{1,6}\d{1,6}|ISO\s+\d+(?:-\d+)?)(?![\w/-])", re.I)
 
 
 def extract_technical_codes(query: str) -> list[str]:
