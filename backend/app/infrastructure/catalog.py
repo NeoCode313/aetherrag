@@ -28,6 +28,9 @@ from app.infrastructure.catalog_migrations import migrate
 
 ACTIVE_STATES = ("queued", "running", "retry_wait")
 STAT_FIELDS = ("page_count", "chunk_count", "visual_count", "table_count")
+TIMING_FIELDS = {"resolve_ms", "parse_ms", "captions_ms", "chunking_ms", "linking_ms",
+    "dense_embedding_ms", "sparse_encoding_ms", "indexing_ms", "verification_ms", "manifest_ms", "total_ms",
+    "parse_previews_ms", "parse_text_ms", "parse_ocr_ms", "parse_tables_ms", "parse_visuals_ms", "parse_total_ms"}
 
 
 def _id(prefix: str) -> str:
@@ -529,11 +532,30 @@ class Catalog:
                 message=message, updated_at=self._now(connection)))
             return changed.rowcount == 1
 
-    def complete(self, job_id: str, owner: str, epoch: int, document_stats: dict[str, int], manifest_path: str) -> bool:
+    @staticmethod
+    def _timings(values) -> dict[str, float]:
+        if values is None:
+            return {}
+        if (not isinstance(values, dict) or any(key not in TIMING_FIELDS or type(value) not in (int, float)
+                or not math.isfinite(value) or value < 0 for key, value in values.items())):
+            raise ValidationError("Invalid ingestion timing measurements")
+        return {key: round(float(value), 2) for key, value in values.items()}
+
+    def job_timings(self, job_id: str) -> dict[str, float]:
+        with self._tx(read_only=True) as connection:
+            stats = connection.scalar(select(s.runs.c.document_stats).select_from(
+                s.jobs.join(s.runs, s.jobs.c.run_id == s.runs.c.run_id).join(
+                    s.documents, s.jobs.c.document_id == s.documents.c.document_id)).where(
+                s.jobs.c.job_id == job_id, s.documents.c.workspace_id == self.workspace_id)) or {}
+            return stats.get("timings_ms", {})
+
+    def complete(self, job_id: str, owner: str, epoch: int, document_stats: dict[str, Any], manifest_path: str) -> bool:
         stats = {key: document_stats.get(key, 0) for key in STAT_FIELDS}
         if (not manifest_path or any(type(value) is not int or value < 0 for value in stats.values())
             or stats["chunk_count"] < 1):
             raise ValidationError("Publication requires a manifest and positive chunk count")
+        if "timings_ms" in document_stats:
+            stats["timings_ms"] = self._timings(document_stats["timings_ms"])
         with self._tx() as connection:
             control = self._control(connection, lock=True)
             row = self._owned(connection, job_id, owner, epoch)
@@ -556,7 +578,9 @@ class Catalog:
                 generation_id=row["generation_id"], run_id=row["run_id"], activated_at=now))
             return True
 
-    def fail(self, job_id: str, owner: str, epoch: int, error: str, retryable: bool = False) -> bool:
+    def fail(self, job_id: str, owner: str, epoch: int, error: str, retryable: bool = False,
+             timings_ms: dict[str, float] | None = None) -> bool:
+        timings = self._timings(timings_ms)
         with self._tx() as connection:
             row = self._owned(connection, job_id, owner, epoch)
             if not row:
@@ -571,7 +595,8 @@ class Catalog:
                 updated_at=now, finished_at=None if retry else now))
             if changed.rowcount != 1:
                 return False
-            connection.execute(update(s.runs).where(s.runs.c.run_id == row["run_id"]).values(status="failed", finished_at=now))
+            connection.execute(update(s.runs).where(s.runs.c.run_id == row["run_id"]).values(
+                status="failed", finished_at=now, document_stats={"timings_ms": timings}))
             return True
 
     def active_run_ids(self, document_ids: list[str] | None = None, generation_id: str | None = None) -> list[str]:
@@ -590,6 +615,18 @@ class Catalog:
             return connection.scalar(select(s.runs.c.document_id).join(s.documents).where(
                 s.runs.c.run_id == run_id, s.runs.c.status == "completed",
                 s.documents.c.workspace_id == self.workspace_id, s.documents.c.deleted_at.is_(None)))
+
+    def published_run_source(self, run_id: str) -> dict[str, Any] | None:
+        with self._tx(read_only=True) as connection:
+            row = connection.execute(select(s.revisions.c.source_id, s.runs.c.document_stats).select_from(
+                s.runs.join(s.revisions, s.runs.c.revision_id == s.revisions.c.revision_id).join(
+                    s.documents, s.runs.c.document_id == s.documents.c.document_id)).where(
+                s.runs.c.run_id == run_id, s.runs.c.status == "completed",
+                s.documents.c.workspace_id == self.workspace_id,
+                s.documents.c.deleted_at.is_(None))).mappings().first()
+            if not row:
+                return None
+            return {"source_id": row["source_id"], "page_count": row["document_stats"]["page_count"]}
 
     def query_snapshot(self, document_ids: list[str] | None = None) -> dict[str, Any]:
         """Capture collection, profile and published runs with one SQL statement.

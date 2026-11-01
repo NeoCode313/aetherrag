@@ -157,6 +157,7 @@ class ParsedDocument:
     document_id: str
     file_name: str
     pages: list[ParsedPage]
+    timings_ms: dict[str, float] = field(default_factory=dict)
 
     @property
     def visuals(self) -> list[VisualAsset]:

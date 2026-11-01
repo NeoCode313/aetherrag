@@ -1,95 +1,124 @@
-# Publicación y actualizaciones privadas
+# Despliegue, actualizaciones y acceso al repositorio
 
-La migración React se publica en v4-react; v4 conserva la entrega anterior. El repositorio remoto contiene una copia saneada del código. Los secretos, datos y configuración de cada instalación se mantienen fuera de Git.
+## Instalación independiente
 
-## Publicar desde la PC de desarrollo
+La ruta principal para el evaluador está en [README.md](../README.md): clonar el repositorio autorizado y ejecutar `start-local.ps1` o `start-local.sh`. Cada instalación genera sus secretos y volúmenes. No requiere conectarse a infraestructura del autor.
 
-En el entorno original de desarrollo, el propietario dispone de publish-private.ps1 y de submission/repository, un Git independiente. No se publica el historial privado del proyecto original.
+Los datos, `.env`, CA/certificados, claves de proveedores y backups deben permanecer fuera del historial Git. El archivo `compose.performance.yml` es un perfil portable de recursos; no contiene credenciales ni direcciones de un servidor concreto.
 
-~~~powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish-private.ps1 -Message "fix: describir el cambio realizado"
-~~~
+## Publicar cambios de código
 
-El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir v4-react. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
+En un clon de trabajo con permisos de escritura:
 
-Si falla un control, revisar los cambios que quedaron preparados en submission/repository. No publicar manualmente esa copia sin resolver el control. Los tests locales omiten PostgreSQL/stack cuando no están configurados; revisar también la CI de GitHub.
+```bash
+git status --short
+git diff --check
+git add <archivos-revisados>
+git commit -m "fix: describir el comportamiento corregido"
+git push origin <rama-de-trabajo>
+```
 
-Los scripts privados de exportación/publicación no se incluyen en el código que reciben los evaluadores. Un desarrollador que trabaje directamente en un clon limpio puede usar el flujo Git habitual, conservando las mismas revisiones de secretos y pruebas.
+No añadir `.env`, volúmenes, directorios de datos o logs. Antes de una actualización, comprobar la CI del commit específico y analizar secretos tanto en archivos como en historial. Un análisis de secretos no sustituye revisar datos privados, rutas de infraestructura y documentación.
 
-## Acceso de lectura desde el servidor
+La rama de entrega es `v4-react`. Las revisiones anteriores permanecen identificables mediante commits; el nombre de rama por sí solo no acredita qué imagen está ejecutándose. El endpoint `/api/v1/system/version` muestra una huella del código y el historial privado de despliegue registra el commit/imagen.
 
-Crear una clave exclusiva del repositorio dentro del servidor. La clave privada permanece allí:
+## Lectura de GitHub desde un servidor
 
-~~~bash
+Si se necesita actualizar un despliegue desde GitHub, utilizar credenciales propias de ese servidor. Una deploy key de solo lectura puede asociarse únicamente a este repositorio. Nunca trasladar al servidor una clave privada de otra máquina ni incrustar tokens en la URL del remoto.
+
+Ejemplo, ejecutado en el servidor administrador:
+
+```bash
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 ssh-keygen -t ed25519 -f ~/.ssh/aetherrag-github -C aetherrag-deploy
 cat ~/.ssh/aetherrag-github.pub
-~~~
+```
 
-Si el archivo ya existe, conservarlo o elegir otro nombre; no sobrescribir una clave utilizada. Elegir una contraseña de clave si se va a desbloquear manualmente con ssh-agent.
+Conservar cualquier clave existente; elegir otro nombre si hace falta. Añadir solo el contenido público en GitHub, ajustes del repositorio, **Deploy keys**, sin permiso de escritura. Verificar la identidad del host usando las [huellas oficiales de GitHub](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints).
 
-Añadir únicamente el contenido del archivo .pub en GitHub → repositorio → Settings → Deploy keys. Mantener desmarcada la autorización de escritura. No usar la clave de acceso al servidor ni copiar su clave privada a GitHub.
+Si la clave tiene passphrase, desbloquearla en la sesión del operador:
 
-Verificar la identidad SSH de GitHub con sus [huellas oficiales](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) al conectar por primera vez. No desactivar StrictHostKeyChecking.
-
-El repositorio privado creado es NeoCode313/aetherrag. Si la nueva clave tiene passphrase, desbloquearla en esa sesión del servidor:
-
-~~~bash
+```bash
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/aetherrag-github
-~~~
+```
 
-Clonar y fijar la identidad SSH exclusiva del repositorio:
+La passphrase y la clave privada no se documentan ni se comparten. Para información sobre su alcance, consultar [deploy keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys).
 
-~~~bash
-git -c core.sshCommand="ssh -i $HOME/.ssh/aetherrag-github -o IdentitiesOnly=yes" \
-  clone git@github.com:NeoCode313/aetherrag.git ~/apps/aetherrag-source
+## Actualizador de una instalación existente
 
-git -C ~/apps/aetherrag-source config core.sshCommand \
-  "ssh -i $HOME/.ssh/aetherrag-github -o IdentitiesOnly=yes"
-~~~
+`ops/update-server.sh` está diseñado para una instalación existente, con proyecto Compose conocido y esquema compatible. No es un asistente de primera instalación ni una migración automática de cualquier versión.
 
-GitHub documenta que una [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) se asocia a un repositorio. Su acceso debe limitarse a lectura.
+Separa:
 
-## Actualizar la instalación existente
+- **Clon de código:** contiene Git, Dockerfile, Compose y aplicación.
+- **Configuración privada:** directorio fuera del clon con `.env`, un overlay `compose.server-test.yml` y `.deploy-state/`.
+- **Volúmenes:** PostgreSQL, Redis, Qdrant, PDFs/estado y Caddy de ese proyecto.
 
-Conservar fuera del clon la carpeta de configuración de la instalación que ya funciona: debe contener su .env y su compose.server-test.yml. No copiar un .env del autor o del evaluador.
+Los siguientes nombres son ejemplos genéricos. Selecciona las rutas y el nombre del proyecto de tu instalación existente:
 
-Antes de desplegar, comprobar la CI de la revisión deseada en GitHub. El actualizador no consulta automáticamente el resultado de la CI.
-
-Para la instalación existente de v3:
-
-~~~bash
-cd ~/apps/aetherrag-source
+```bash
+APP_SOURCE="$HOME/apps/aetherrag-source"
+APP_CONFIG="$HOME/apps/aetherrag-runtime"
+APP_PROJECT="aetherrag-evaluation"
+cd "$APP_SOURCE"
 git fetch origin v4-react
+git status --short
+```
+
+Antes de activar:
+
+1. Identificar el commit deseado y confirmar sus verificaciones de CI.
+2. Esperar a que terminen las ingestas o ejecutar mantenimiento controlado.
+3. Crear y comprobar backups coordinados de PostgreSQL, PDFs/estado privado y snapshots de Qdrant. Conservar también configuración, imagen y commit anteriores.
+4. Revisar cambios de esquema, perfiles de embeddings y requisitos de memoria. Un cambio de generador no es una migración de embeddings.
+5. Verificar que `.env` y el overlay privado pertenecen a esa instalación y que el clon está limpio.
+
+Para cargar por primera vez una versión de la herramienta con soporte para esta rama:
+
+```bash
 git switch --detach origin/v4-react
-bash ops/update-server.sh ~/apps/aetherrag-v3-f305946 aetherrag-v3-test origin/v4-react
-~~~
+bash ops/update-server.sh "$APP_CONFIG" "$APP_PROJECT" origin/v4-react
+```
 
-El primer cambio desde v4 carga también el actualizador con soporte para v4-react. Esta migración de interfaz no cambia el esquema del catálogo. Los contenedores anteriores permanecen activos mientras se prepara la nueva imagen. Después, utilizar el actualizador indicando origin/v4-react explícitamente. El script:
+Ese primer `switch` cambia la referencia de código antes de que la herramienta capture el commit anterior; registra el commit real anterior por separado para una eventual recuperación. En las actualizaciones siguientes basta invocar el actualizador desde el checkout existente.
 
-1. Requiere un clon limpio y una instalación existente; bloquea actualizaciones concurrentes.
-2. Descarga la rama seleccionada y comprueba que la revisión pertenece a ella.
-3. Detiene el proceso si cambian los archivos de esquema/migraciones: eso requiere un plan de migración y respaldo separado.
-4. Construye una imagen etiquetada por commit.
-5. Mantiene el nombre del proyecto Docker y los volúmenes existentes.
-6. Recrea únicamente API, worker y proxy, conserva los límites del overlay privado y espera su disponibilidad.
-7. Comprueba que /docs entregue los recursos locales corregidos.
-8. Ante error, intenta recuperar la imagen y revisión anteriores. Informa si hay que revisar la recuperación; no promete una reversión de datos.
+### Comportamiento del actualizador
 
-La instalación inicial de este flujo presupone el esquema v3 que ya tiene el servidor. No está diseñada para migrar automáticamente instalaciones antiguas ni hacer cambios destructivos de datos.
+- Serializa operaciones mediante un lock privado.
+- Descarga la rama seleccionada y comprueba la pertenencia de la revisión.
+- Detiene la actualización automática si cambian los archivos de esquema/migraciones.
+- Construye una imagen etiquetada por commit antes de sustituir contenedores.
+- Conserva proyecto/volúmenes y aplica el overlay privado de recursos.
+- Recrea API, worker y proxy, espera su salud y comprueba los assets locales de `/docs`.
+- Registra timestamp, commit e imagen en `.deploy-state/history`.
+- Ante error, intenta recuperar la imagen/configuración anterior. La recuperación de contenedores no es una reversión de datos.
 
-La carpeta privada incorpora .deploy-state para bloqueo, overlay de imagen e historial. No se publica. Las otras aplicaciones Docker del servidor quedan fuera del proyecto seleccionado.
+El script no comprueba por sí solo el resultado de GitHub Actions ni realiza todos los backups anteriores. Tampoco abre puertos públicos, instala webhooks o configura despliegue automático por cada push. Cambios de esquema o de índice necesitan su propio plan de migración y reversión.
 
-Durante la recreación habrá una interrupción breve. Para minimizar el tiempo, primero se construye la imagen y después se recrean los contenedores.
+## Perfil de recursos
 
-## Comprobaciones después de actualizar
+El perfil [compose.performance.yml](../compose.performance.yml) permite probar recursos sin introducir datos privados en Git. Para una instalación local de evaluación, utiliza el comando del README con el mismo proyecto Compose.
 
-Abrir /docs desde el mismo origen que la aplicación. En la instalación con túnel privado usar el puerto local de ese túnel; el script no abre puertos públicos.
+En una instalación existente cuyo actualizador ya aplica `compose.server-test.yml`, revisar e incorporar únicamente los límites, comando del worker y variables de rendimiento necesarios al overlay privado. Mantener sus credenciales, rutas de volúmenes y restricciones de red. La RAM más swap debe ser compatible con el límite de RAM; no incrementar solo uno de esos campos a ciegas.
 
-Una respuesta HTML que todavía incluya cdn.jsdelivr.net corresponde al Swagger antiguo. La versión corregida incluye /static/api-docs-init.js. Recargar el navegador no sustituye reiniciar el backend o reconstruir un contenedor antiguo.
+No se debe aumentar el número de procesos de Celery sin presupuestar la duplicación de modelos. El perfil comienza con un worker, varios hilos internos de inferencia y cuotas explícitas. Medir antes/después con [el procedimiento de rendimiento](PERFORMANCE.md).
 
-Probar login, una consulta, su cita y la figura/página asociada. Para las pruebas completas del stack, usar la contraseña propia de la aplicación sin guardarla en Git.
+## Comprobaciones posteriores
 
-No se configura una conexión entrante desde GitHub Actions al servidor. La publicación y la actualización se mantienen como dos pasos explícitos, con las claves del servidor protegidas.
+- `/api/v1/system/health`: catálogo y vector store disponibles; revisar también `index_compatible`.
+- `/api/v1/system/version`: huella y pipeline de la imagen esperada.
+- `/`: cliente React y sus assets con huellas de contenido.
+- `/docs`: Swagger y sus recursos locales; comprobarlo en el navegador.
+- Sesión/CSRF, ingesta de un PDF sintético por el worker y consulta con citas/figuras/páginas.
+- Persistencia de selección del proveedor y del perfil del índice tras recrear contenedores.
+- PDFs originales, volúmenes y servicios ajenos conservados; ausencia de reinicios/OOM inesperados.
+
+En instalaciones con un túnel privado, la URL de localhost depende de que ese túnel esté activo. No se debe publicar una dirección privada del administrador como URL de evaluación. Para el entregable de demostración, usar un video con datos sintéticos o un despliegue destinado expresamente a los evaluadores.
+
+## Compartir la entrega
+
+Mantener el repositorio privado e invitar cuentas desde **Settings > Collaborators** de ese repositorio. La invitación debe referirse solo al proyecto. No entregar el `.env` del autor, credenciales SSH, certificados, datos o volúmenes. La capacidad de asignar un rol de lectura depende del tipo de propietario/plan del repositorio; revisar el rol mostrado por GitHub antes de enviarla.
+
+Los evaluadores crean su administrador y proveedor en su instalación. El acceso al repositorio no implica acceso a la aplicación ya desplegada del administrador ni a otros repositorios.

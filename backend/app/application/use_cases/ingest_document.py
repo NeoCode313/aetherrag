@@ -5,7 +5,9 @@ import io
 import json
 import logging
 import threading
+import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import asdict
 from collections.abc import Callable
 
@@ -53,6 +55,16 @@ class IngestDocumentUseCase:
         if context is None:
             return self.catalog.job_repo.get(job_id)
         epoch, run_id = context["epoch"], context["run_id"]
+        began = time.perf_counter()
+        timings: dict[str, float] = {}
+
+        @contextmanager
+        def measured(name):
+            start = time.perf_counter()
+            try:
+                yield
+            finally:
+                timings[name] = timings.get(name, 0.0) + (time.perf_counter() - start) * 1000
         stopped, lost = threading.Event(), threading.Event()
 
         def renew():
@@ -76,20 +88,26 @@ class IngestDocumentUseCase:
         try:
             if context["pipeline_version"] != self.catalog.pipeline_version:
                 raise ConflictError("El pipeline del trabajo requiere su versión de worker; drene antes de migrar")
-            embedder = self.provider_resolver(context["profile_id"])
-            parser, chunker, linker = (self.pipeline_resolver(context["profile_id"]) if self.pipeline_resolver
-                                       else (self.parser, self.chunker, self.spatial_linker))
-            store = self.store_resolver(context["generation_id"], run_id=run_id)
+            with measured("resolve_ms"):
+                embedder = self.provider_resolver(context["profile_id"])
+                parser, chunker, linker = (self.pipeline_resolver(context["profile_id"]) if self.pipeline_resolver
+                                           else (self.parser, self.chunker, self.spatial_linker))
+                store = self.store_resolver(context["generation_id"], run_id=run_id)
             progress(5, "parsing", "Extrayendo texto, tablas y figuras")
-            parsed = parser.parse(
-                pdf_path=self.storage.upload_path(context["source_id"]), document_id=run_id,
-                file_name=context["file_name"],
-                on_progress=lambda f, m: progress(5 + f * 40, "parsing", m))
-            for page in parsed.pages:
-                linker.assign_captions(page)
+            with measured("parse_ms"):
+                parsed = parser.parse(
+                    pdf_path=self.storage.upload_path(context["source_id"]), document_id=run_id,
+                    file_name=context["file_name"],
+                    on_progress=lambda f, m: progress(5 + f * 40, "parsing", m))
+            timings.update({"parse_"+key: value for key, value in parsed.timings_ms.items()})
+            with measured("captions_ms"):
+                for page in parsed.pages:
+                    linker.assign_captions(page)
             progress(50, "chunking", "Segmentando contenido y resolviendo figuras")
-            chunks = chunker.chunk(parsed)
-            linker.link(chunks, parsed.visuals)
+            with measured("chunking_ms"):
+                chunks = chunker.chunk(parsed)
+            with measured("linking_ms"):
+                linker.link(chunks, parsed.visuals)
             if not chunks:
                 raise ValidationError("No hay contenido extraíble; active OCR para páginas escaneadas")
             for chunk in chunks:
@@ -99,36 +117,47 @@ class IngestDocumentUseCase:
             texts = [c.embedding_text for c in chunks]
             dense, sparse = [], []
             # Bound provider and vector requests; heartbeat remains active during network calls.
-            for start in range(0, len(texts), 32):
-                batch = texts[start:start + 32]
-                dense.extend(embedder.embed_documents(batch))
-                sparse.extend(self.sparse_encoder.encode_document(t) for t in batch)
+            for start in range(0, len(texts), 8):
+                batch = texts[start:start + 8]
+                with measured("dense_embedding_ms"):
+                    dense.extend(embedder.embed_documents(batch))
+                with measured("sparse_encoding_ms"):
+                    sparse.extend(self.sparse_encoder.encode_document(t) for t in batch)
                 progress(65 + 20 * min(1, (start + len(batch)) / len(texts)),
                          "embedding", f"Procesados {min(start + len(batch), len(texts))}/{len(texts)} fragmentos")
             if len(dense) != len(chunks) or any(len(v) != embedder.dimension for v in dense):
                 raise ValidationError("El proveedor devolvió embeddings incompletos o incompatibles")
             progress(90, "indexing", "Escribiendo intento aislado en el índice")
-            store.ensure_collection(embedder.dimension)
-            store.upsert(chunks, dense, sparse)
-            if not store.verify_run(run_id, [c.chunk_id for c in chunks]):
-                raise DependencyUnavailableError("La verificación del manifiesto vectorial falló")
+            with measured("indexing_ms"):
+                store.ensure_collection(embedder.dimension)
+                store.upsert(chunks, dense, sparse)
+            with measured("verification_ms"):
+                if not store.verify_run(run_id, [c.chunk_id for c in chunks]):
+                    raise DependencyUnavailableError("La verificación del manifiesto vectorial falló")
             stats = {"page_count": len(parsed.pages), "chunk_count": len(chunks),
                      "visual_count": len(parsed.visuals),
                      "table_count": sum(c.kind == ChunkKind.TABLE for c in chunks)}
+            timings["total_ms"] = (time.perf_counter() - began) * 1000
+            stats["timings_ms"] = timings
             manifest = {"schema_version": 2, "job_id": job_id, "run_id": run_id,
                         "revision_id": context["revision_id"], "generation_id": context["generation_id"],
                         "profile_id": context["profile_id"], "pipeline_version": context["pipeline_version"],
                         "stats": stats, "chunks": [asdict(c) for c in chunks]}
-            path = self.storage.write_manifest(run_id, manifest)
+            with measured("manifest_ms"):
+                path = self.storage.write_manifest(run_id, manifest)
+            timings["total_ms"] = (time.perf_counter() - began) * 1000
             progress(99, "publishing", "Verificando lease y activando revisión")
             if not self.catalog.complete(job_id, owner, epoch, stats, str(path)):
                 raise ConflictError("El catálogo rechazó la publicación del intento")
             logger.info("Published job=%s run=%s generation=%s chunks=%d",
                         job_id, run_id, context["generation_id"], len(chunks))
+            logger.info("Ingestion timings job=%s milliseconds=%s", job_id,
+                        json.dumps({key: round(value, 2) for key, value in timings.items()}, sort_keys=True))
         except Exception as exc:
             logger.exception("Ingestion failed job=%s run=%s", job_id, run_id)
             self.catalog.fail(job_id, owner, epoch, str(exc),
-                              retryable=isinstance(exc, (TransientProviderError, DependencyUnavailableError)))
+                              retryable=isinstance(exc, (TransientProviderError, DependencyUnavailableError)),
+                              timings_ms={**timings, "total_ms": (time.perf_counter() - began) * 1000})
         finally:
             stopped.set()
             heartbeat.join(timeout=2)

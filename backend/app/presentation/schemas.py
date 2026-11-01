@@ -115,6 +115,8 @@ class JobStatusResponse(BaseModel):
     updated_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+    queued_ms: float | None = None
 
 
 class DocumentDTO(BaseModel):

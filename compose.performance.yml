@@ -1,0 +1,34 @@
+# Optional bounded resources for a host with >= 4 CPUs and >= 6 GiB for Docker.
+# No credentials, host paths or externally published services are introduced.
+x-pdf-performance: &pdf-performance
+  PDF_DEFER_PREVIEWS: "true"
+  PDF_MAX_PARSE_SECONDS: ${PERFORMANCE_PDF_PARSE_SECONDS:-600}
+
+services:
+  api:
+    cpus: ${API_CPUS:-1.5}
+    mem_limit: ${API_MEMORY:-1536m}
+    memswap_limit: ${API_MEMORY_SWAP:-2g}
+    environment: *pdf-performance
+  worker:
+    cpus: ${WORKER_CPUS:-3}
+    mem_limit: ${WORKER_MEMORY:-2g}
+    memswap_limit: ${WORKER_MEMORY_SWAP:-3g}
+    environment: *pdf-performance
+    command: [celery, -A, app.infrastructure.tasks.queue_adapter:celery_app, worker, --loglevel=info, --concurrency=1, --prefetch-multiplier=1, --hostname=worker@%h]
+  postgres:
+    cpus: 0.5
+    mem_limit: 512m
+    memswap_limit: 768m
+  qdrant:
+    cpus: 0.5
+    mem_limit: 512m
+    memswap_limit: 768m
+  redis:
+    cpus: 0.25
+    mem_limit: 128m
+    memswap_limit: 192m
+  proxy:
+    cpus: 0.25
+    mem_limit: 128m
+    memswap_limit: 192m

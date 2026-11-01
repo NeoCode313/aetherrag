@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     ocr_language: str = "eng"
     pdf_max_pages: int = 500
     pdf_max_parse_seconds: float = 120.0
+    pdf_defer_previews: bool = True
+    page_preview_timeout_seconds: float = Field(default=20.0, ge=1, le=120)
+    page_preview_max_pixels: int = Field(default=20_000_000, ge=1, le=40_000_000)
     pipeline_version: str = "layout-v3"
 
     # Google Gemini (Current SDK: google-genai >= 2.30.1)

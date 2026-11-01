@@ -82,6 +82,10 @@ class AppContainer:
         self.catalog = Catalog(url, allow_sqlite=self.settings.environment in ("test", "development"),
                                pipeline_version=self.settings.pipeline_version,
                                max_pending_jobs=self.settings.max_pending_jobs)
+        from app.infrastructure.pdf.page_preview import PagePreviewRenderer
+        self.page_previews = PagePreviewRenderer(self.catalog, self.storage,
+            timeout_seconds=self.settings.page_preview_timeout_seconds,
+            max_pixels=self.settings.page_preview_max_pixels)
         self.job_repo, self.doc_repo = self.catalog.job_repo, self.catalog.document_repo
         self.llm_breaker = CircuitBreaker("llm", self.settings.circuit_breaker_failure_threshold,
                                          self.settings.circuit_breaker_recovery_seconds)
@@ -117,6 +121,7 @@ class AppContainer:
             storage=self.storage, ocr_enabled=self.settings.ocr_enabled,
             ocr_language=self.settings.ocr_language, max_pages=self.settings.pdf_max_pages,
             max_parse_seconds=self.settings.pdf_max_parse_seconds,
+            defer_page_previews=self.settings.pdf_defer_previews,
             allow_large_vectors=profile["pipeline_config"].get("allow_large_vectors", False))
         pipeline_spec = profile["pipeline_config"]
         counter = (self.resolve_embedder(self.configured_generation["profile_id"]).count_tokens
@@ -189,7 +194,8 @@ class AppContainer:
         spec = profile["pipeline_config"]
         parser = PyMuPDFDocumentParser(storage=self.storage, ocr_enabled=spec["ocr_enabled"],
             ocr_language=spec["ocr_language"], max_pages=candidate.pdf_max_pages,
-            max_parse_seconds=candidate.pdf_max_parse_seconds, allow_large_vectors=True)
+            max_parse_seconds=candidate.pdf_max_parse_seconds, allow_large_vectors=True,
+            defer_page_previews=candidate.pdf_defer_previews)
         chunker = LayoutAwareChunker(spec["chunk_max_tokens"], spec["chunk_overlap_ratio"], token_counter=embedder.count_tokens)
         self.settings.embedding_provider = "onnx"
         self._provider_base.embedding_provider = "onnx"
@@ -218,6 +224,7 @@ class AppContainer:
                     PyMuPDFDocumentParser(storage=self.storage, ocr_enabled=spec["ocr_enabled"],
                         ocr_language=spec["ocr_language"], max_pages=self.settings.pdf_max_pages,
                         max_parse_seconds=self.settings.pdf_max_parse_seconds,
+                        defer_page_previews=self.settings.pdf_defer_previews,
                         allow_large_vectors=spec.get("allow_large_vectors", False)),
                     LayoutAwareChunker(spec["chunk_max_tokens"], spec["chunk_overlap_ratio"],
                         token_counter=(self.resolve_embedder(profile_id).count_tokens

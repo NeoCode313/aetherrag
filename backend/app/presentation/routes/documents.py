@@ -99,6 +99,8 @@ def get_job_status(
         updated_at=job.updated_at,
         started_at=job.started_at,
         finished_at=job.finished_at,
+        timings_ms=container.catalog.job_timings(job_id) if job.finished_at else {},
+        queued_ms=round((job.started_at-job.created_at).total_seconds()*1000, 2) if job.started_at else None,
     )
 
 
@@ -173,9 +175,5 @@ def get_page_preview(
     page_number: int,
     container: AppContainer = Depends(get_container),
 ) -> FileResponse:
-    if not container.catalog.published_run_document(document_id):
-        raise NotFoundError("La página no pertenece a una revisión publicada")
-    path = container.storage.page_image_path(document_id, page_number)
-    if not path.exists():
-        raise NotFoundError(f"Vista de página {page_number} no disponible para '{document_id}'.")
+    path = container.page_previews.get(document_id, page_number)
     return FileResponse(path, media_type="image/png")

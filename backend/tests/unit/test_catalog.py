@@ -59,6 +59,29 @@ def test_duplicate_delivery_claims_only_one_owner(catalog):
     assert catalog.claim(job.job_id, "late-duplicate") is None
 
 
+@pytest.mark.parametrize("measurements", [
+    {"parse_ms": float("nan")}, {"total_ms": -1}, {"parse_ms": True},
+    {"api_key": 123}, {"parse_ms": "private text"},
+])
+def test_ingestion_telemetry_only_accepts_finite_numeric_known_fields(catalog, measurements):
+    job, _ = submit(catalog)
+    claim = catalog.claim(job.job_id, "worker")
+    with pytest.raises(ValidationError, match="timing"):
+        catalog.complete(job.job_id, "worker", claim["epoch"], {
+            "chunk_count": 1, "page_count": 1, "timings_ms": measurements,
+        }, "manifest.json")
+    assert catalog.active_run_ids() == []
+
+
+def test_stale_owner_cannot_change_timings_or_expose_an_unpublished_source(catalog):
+    job, _ = submit(catalog)
+    claim = catalog.claim(job.job_id, "old")
+    assert catalog.published_run_source(claim["run_id"]) is None
+    expire(catalog, job.job_id)
+    assert not catalog.fail(job.job_id, "old", claim["epoch"], "late", timings_ms={"parse_ms": 9})
+    assert catalog.job_timings(job.job_id) == {}
+
+
 def test_expired_owner_cannot_heartbeat_update_or_publish(catalog):
     job, _ = submit(catalog)
     old = catalog.claim(job.job_id, "old")

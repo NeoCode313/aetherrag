@@ -16,6 +16,7 @@ import math
 import re
 import statistics
 import time
+from contextlib import contextmanager
 from collections.abc import Callable
 from pathlib import Path
 
@@ -59,6 +60,7 @@ class PyMuPDFDocumentParser(DocumentParser):
         max_text_chars: int = 2_000_000,
         max_total_render_pixels: int = 500_000_000,
         allow_large_vectors: bool = False,
+        defer_page_previews: bool = False,
     ) -> None:
         if any(dpi < 36 or dpi > 300 for dpi in (crop_dpi, page_preview_dpi, ocr_dpi)):
             raise ValueError("PDF rendering/OCR DPI must be between 36 and 300")
@@ -79,6 +81,7 @@ class PyMuPDFDocumentParser(DocumentParser):
         self.max_text_chars = max_text_chars
         self.max_total_render_pixels = max_total_render_pixels
         self.allow_large_vectors = allow_large_vectors
+        self.defer_page_previews = defer_page_previews
 
     def parse(
         self,
@@ -93,6 +96,15 @@ class PyMuPDFDocumentParser(DocumentParser):
         parsed_pages: list[ParsedPage] = []
         rendered_pixels = 0
         text_chars = 0
+        timings = {key: 0.0 for key in ("previews_ms", "text_ms", "ocr_ms", "tables_ms", "visuals_ms")}
+
+        @contextmanager
+        def measured(key):
+            beginning = time.perf_counter()
+            try:
+                yield
+            finally:
+                timings[key] += (time.perf_counter() - beginning) * 1000
 
         def check_time() -> None:
             if time.monotonic() - started > self.max_parse_seconds:
@@ -132,21 +144,25 @@ class PyMuPDFDocumentParser(DocumentParser):
 
                 # 1. Render full page preview for interactive UI bounding-box inspection
                 page_img_path = self.storage.page_image_path(document_id, page_num)
-                if not page_img_path.exists():
+                if not self.defer_page_previews and not page_img_path.exists():
+                    preview_started = time.perf_counter()
                     page_img_path.parent.mkdir(parents=True, exist_ok=True)
                     pix = render(page, self.page_preview_dpi)
                     pix.save(str(page_img_path))
                     del pix
+                    timings["previews_ms"] += (time.perf_counter() - preview_started) * 1000
 
                 # 2. Extract raw text blocks with font metrics
-                raw_blocks = self._extract_raw_text_blocks(page, pw, ph)
+                with measured("text_ms"):
+                    raw_blocks = self._extract_raw_text_blocks(page, pw, ph)
                 if self.ocr_enabled and self._needs_ocr(page, raw_blocks):
                     ocr_pixels = self._pixel_count(page.rect, self.ocr_dpi)
                     if ocr_pixels > self.max_render_pixels or rendered_pixels + ocr_pixels > self.max_total_render_pixels:
                         raise ValidationError("La página excede el presupuesto de píxeles para OCR.")
                     rendered_pixels += ocr_pixels
                     try:
-                        textpage = page.get_textpage_ocr(language=self.ocr_language, dpi=self.ocr_dpi, full=True)
+                        with measured("ocr_ms"):
+                            textpage = page.get_textpage_ocr(language=self.ocr_language, dpi=self.ocr_dpi, full=True)
                     except Exception as exc:
                         raise ValidationError(
                             "El OCR solicitado no está disponible: instale Tesseract y los datos "
@@ -159,20 +175,22 @@ class PyMuPDFDocumentParser(DocumentParser):
                     raise ValidationError("El PDF excede el límite de texto extraíble configurado.")
 
                 # 3. Extract tables as Markdown + BoundingBoxes
-                table_elements = self._extract_tables(page, page_num, pw, ph)
+                with measured("tables_ms"):
+                    table_elements = self._extract_tables(page, page_num, pw, ph)
                 table_boxes = [t.bbox for t in table_elements]
 
                 # 4. Extract visual assets (embedded raster images + vector schematic clusters)
-                visuals = self._extract_visuals(
-                    page=page,
-                    document_id=document_id,
-                    page_num=page_num,
-                    pw=pw,
-                    ph=ph,
-                    raw_blocks=raw_blocks,
-                    table_boxes=table_boxes,
-                    render=render,
-                )
+                with measured("visuals_ms"):
+                    visuals = self._extract_visuals(
+                        page=page,
+                        document_id=document_id,
+                        page_num=page_num,
+                        pw=pw,
+                        ph=ph,
+                        raw_blocks=raw_blocks,
+                        table_boxes=table_boxes,
+                        render=render,
+                    )
 
                 # 5. Classify text blocks (headings, captions, paragraphs) avoiding table duplicates
                 text_elements: list[LayoutElement] = []
@@ -212,10 +230,12 @@ class PyMuPDFDocumentParser(DocumentParser):
                 on_progress(1.0, f"Extracción PDF completada ({total_pages} páginas).")
 
             check_time()
+            timings["total_ms"] = (time.monotonic() - started) * 1000
             return ParsedDocument(
                 document_id=document_id,
                 file_name=file_name,
                 pages=parsed_pages,
+                timings_ms={key: round(value, 2) for key, value in timings.items()},
             )
         finally:
             doc.close()
@@ -394,6 +414,11 @@ class PyMuPDFDocumentParser(DocumentParser):
         except Exception as exc:
             logger.debug("Table detection skipped on page %d: %s", page.number + 1, exc)
             return []
+        # Read the page text once. Retain the legacy cell-clipped extraction for
+        # boundary-crossing words, where clipping individual glyphs can differ
+        # from selecting words out of a full-page TextPage.
+        textpage = page.get_textpage(flags=pymupdf.TEXTFLAGS_TEXT) if tables else None
+        word_boxes = [word[:4] for word in textpage.extractWORDS()] if textpage else []
         extracted = []
         for tbl in tables:
             try:
@@ -403,7 +428,7 @@ class PyMuPDFDocumentParser(DocumentParser):
                 # repair such numbers by guessing after the fact.
                 cell_rows = getattr(tbl, "rows", None)
                 rows = [
-                    [page.get_text("text", clip=pymupdf.Rect(cell), sort=True).strip() if cell else "" for cell in row.cells]
+                    [PyMuPDFDocumentParser._cell_text(page, cell, textpage, word_boxes) if cell else "" for cell in row.cells]
                     for row in cell_rows
                 ] if cell_rows else tbl.extract()
             except Exception:
@@ -412,6 +437,16 @@ class PyMuPDFDocumentParser(DocumentParser):
                 continue
             extracted.append((rows, tuple(tbl.bbox)))
         return extracted
+
+    @staticmethod
+    def _cell_text(page, cell, textpage, word_boxes) -> str:
+        rect = pymupdf.Rect(cell)
+        crosses_boundary = any(
+            min(x1, rect.x1) > max(x0, rect.x0) and min(y1, rect.y1) > max(y0, rect.y0)
+            and not (rect.x0 <= x0 and rect.y0 <= y0 and x1 <= rect.x1 and y1 <= rect.y1)
+            for x0, y0, x1, y1 in word_boxes)
+        return page.get_text("text", clip=rect, sort=True,
+                             textpage=None if crosses_boundary else textpage).strip()
 
     @staticmethod
     def _rows_to_markdown(rows: list[list[str]]) -> str:
