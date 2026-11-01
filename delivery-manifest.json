@@ -370,8 +370,8 @@
     },
     {
       "path": "backend/scripts/load_smoke.py",
-      "sha256": "c210e2da9fac9d9a650471928e0fab056df80a74269e7f83acb6f89f2281adf4",
-      "bytes": 13354
+      "sha256": "3d8d0c8c1168c4013f3d3dc7cc71c11201c65d87f843514d35b85d49fe2a006c",
+      "bytes": 14427
     },
     {
       "path": "backend/scripts/local_setup.py",
@@ -427,6 +427,11 @@
       "path": "backend/tests/integration/test_layout_context_retrieval.py",
       "sha256": "06676afa5c1153525f9f0b7c5e9c4166dcd9fa90f7a0e92216d394e7fc3f1ca0",
       "bytes": 2189
+    },
+    {
+      "path": "backend/tests/integration/test_load_baseline_contract.py",
+      "sha256": "d30af2e2d3cd1dc609c3900e2c79a81684c10598c37d15f6105cfb43046af035",
+      "bytes": 895
     },
     {
       "path": "backend/tests/integration/test_real_stack.py",
@@ -550,8 +555,8 @@
     },
     {
       "path": "frontend-react/README.md",
-      "sha256": "a87fe3dd1edade5581521c43a95d5a65a44680bfb22ed6f23ee44cef0aa4acb2",
-      "bytes": 3080
+      "sha256": "a1d63b5214fc4f1e1d60b5e65854abbe7d68a4c7a36198ea809c894814985caf",
+      "bytes": 3585
     },
     {
       "path": "frontend-react/index.html",
@@ -605,8 +610,8 @@
     },
     {
       "path": "frontend-react/src/components/Topbar.tsx",
-      "sha256": "d0132997751483404f48da88e30e07028606f717345fc4a05102d43254643400",
-      "bytes": 3287
+      "sha256": "e0f92f831ba84839cf88b0ea43c5bfa1182d18bcbebed1eeaa529e92ece62883",
+      "bytes": 3244
     },
     {
       "path": "frontend-react/src/components/VisualInspector.tsx",
@@ -675,12 +680,12 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "1ca96d6bf46d7bfc4d334aa5ef95f1d6a5a559c89796121028d1db46b8fdf4bb",
-      "bytes": 191589
+      "sha256": "550dbc9de8cf09ddb05b708de61fc19bd8ab82200f345182a6002bcb22d1a579",
+      "bytes": 191547
     },
     {
       "path": "frontend/index.html",
-      "sha256": "32d2ca2bbd50ac42af2fed7b34f99c939769731bdeb8c9798894af6adaeceb32",
+      "sha256": "efe65ef2cda952768c8079c77276798be3730ee5f60218fd189643a37c1c11df",
       "bytes": 556
     },
     {
@@ -700,8 +705,8 @@
     },
     {
       "path": "frontend/tests/react.spec.cjs",
-      "sha256": "124f0d9a01685a710be3705d2755a59f0ac62556c01d0afa0900b7c10c98663c",
-      "bytes": 12666
+      "sha256": "25f59f1eae8d60f08d2eee94daa9dd93c62a758201cc5b2b2e75a2fc80e9d2af",
+      "bytes": 13100
     },
     {
       "path": "frontend/tests/workbench.spec.cjs",

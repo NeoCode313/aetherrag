@@ -42,3 +42,5 @@ node --test frontend/tests/*.spec.cjs
 Preparar primero las credenciales propias con start-local.ps1 o start-local.sh según el README principal. Las pruebas de navegador requieren Playwright/Chromium. Los servicios PostgreSQL y Docker se verifican en el trabajo separado de CI cuando no están disponibles en el host.
 
 Los indicadores de citas y recuperación describen controles y fuentes; no certifican veracidad semántica. El soporte visual y la capacidad generativa dependen del proveedor configurado.
+
+El smoke de carga conserva los límites de 500 ms para p95 de chat, 1000 ms para admisión y degradación relativa máxima de 10. El control relativo compara cuatro workers de chat bajo ingesta con cuatro workers sobre el mismo corpus ya publicado, usando 64 observaciones de referencia. El informe conserva además la referencia serial anterior de ocho observaciones; ambos datos quedan disponibles para auditoría. Este harness sintético no equivale a una prueba de manuales industriales ni a un SLA.

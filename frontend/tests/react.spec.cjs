@@ -29,7 +29,7 @@ test('React lifetimes and usability under CSP',async t=>{
   const origin='http://127.0.0.1:'+server.address().port;
   const browser=await chromium.launch({headless:true});
   t.after(async()=>{await browser.close();await new Promise(resolve=>server.close(resolve));});
-  async function setup(handler,clock=false){
+  async function setup(handler,clock=false,user='reviewer'){
     const context=await browser.newContext({viewport:{width:1600,height:1000},reducedMotion:'reduce'});
     const page=await context.newPage(),errors=[];
     page.setDefaultTimeout(12000);page.on('pageerror',error=>errors.push(String(error)));
@@ -39,7 +39,7 @@ test('React lifetimes and usability under CSP',async t=>{
       const json=(body,code=200)=>route.fulfill({status:code,contentType:'application/json',body:JSON.stringify(body)});
       if(pathname.endsWith('/auth/setup')) return json({registration_required:false});
       if(pathname.endsWith('/system/version')) return json({version:'4.1.0',environment:'test',build_id:'fixture'});
-      if(pathname.endsWith('/auth/session')) return json({user:'reviewer',csrf_token:'initial'});
+      if(pathname.endsWith('/auth/session')) return json({user,csrf_token:'initial'});
       if(pathname.endsWith('/auth/login')) return json({user:'reviewer',csrf_token:'renewed'});
       if(pathname.endsWith('/auth/logout')) return json({});
       if(pathname.endsWith('/system/status')) return json(status);
@@ -48,13 +48,22 @@ test('React lifetimes and usability under CSP',async t=>{
       return json({});
     });
     await page.goto(origin);
-    await page.waitForFunction(()=>document.getElementById('btn-session').textContent.includes('reviewer'));
+    await page.waitForFunction(expected=>document.getElementById('btn-session').textContent.includes(expected),user);
     return {page,context,errors};
   }
   const ask=async(page,text)=>{
     await page.locator('#chat-input').fill(text);
     await page.locator('#chat-form').evaluate(form=>form.requestSubmit());
   };
+  await t.test('an owner called test retains the ordinary logout control',async()=>{
+    const {page,context,errors}=await setup(null,false,'test');
+    try {
+      await page.locator('#btn-logout').click();
+      await page.locator('#login-modal').waitFor({state:'visible'});
+      assert.equal(await page.locator('.doc-card').count(),0);
+      assert.deepEqual(errors,[]);
+    } finally {await context.close();}
+  });
   await t.test('four second pulse threshold preserves elapsed time and cancellation',async()=>{
     let pending;
     const {page,context,errors}=await setup(({route,pathname,json})=>{

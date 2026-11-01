@@ -189,19 +189,34 @@ def run_load(count: int=100, timeout_seconds: float=300, *, chat_p95_budget_ms: 
             report["chat_post_load"] = latency_summary(steady)
             steady_p95 = report["chat_post_load"]["p95_ms"]
             report["chat_p95_ratio_vs_same_corpus"] = round(load_p95/steady_p95,3) if steady_p95 and load_p95 else None
+            # Match the four chat workers used during ingestion. A serial baseline
+            # includes neither their queueing nor contention and is not a valid
+            # denominator for an ingestion-only degradation gate.
+            matched = []
+            def baseline_worker():
+                for _ in range(16):
+                    ask(matched)
+                    time.sleep(.01)
+            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="baseline-chat") as workers:
+                for future in [workers.submit(baseline_worker) for _ in range(4)]:
+                    future.result(timeout=30)
+            report["chat_post_load_matched_concurrency"] = latency_summary(matched)
+            matched_p95 = report["chat_post_load_matched_concurrency"]["p95_ms"]
+            report["chat_p95_ratio_vs_matched_concurrency"] = round(load_p95/matched_p95,3) if matched_p95 and load_p95 else None
             report["integrity_passed"] = all(report["invariants"].values()) and not errors
             report["performance_budgets"] = dict(chat_p95_ms=chat_p95_budget_ms,
                 admission_p95_ms=admission_p95_budget_ms, max_chat_degradation=max_chat_degradation,
+                relative_baseline="Same published corpus, four chat workers, 64 observations; serial baseline retained separately",
                 scope="Acceptance budgets for this local synthetic harness, not a production SLA")
             report["performance_checks"] = dict(
                 chat_p95_within_budget=load_p95 is not None and load_p95 <= chat_p95_budget_ms,
                 admission_p95_within_budget=report["admission"]["p95_ms"] <= admission_p95_budget_ms,
-                chat_degradation_within_budget=report["chat_p95_ratio_vs_same_corpus"] is not None
-                    and report["chat_p95_ratio_vs_same_corpus"] <= max_chat_degradation)
+                chat_degradation_within_budget=report["chat_p95_ratio_vs_matched_concurrency"] is not None
+                    and report["chat_p95_ratio_vs_matched_concurrency"] <= max_chat_degradation)
             report["performance_passed"] = all(report["performance_checks"].values())
             report["passed"] = report["integrity_passed"] and report["performance_passed"]
             report["elapsed_seconds"] = round(time.perf_counter()-t_start,3)
-            from measurement_provenance import measurement_provenance
+            from scripts.measurement_provenance import measurement_provenance
             report["provenance"] = measurement_provenance()
             report["recorded_at_utc"] = datetime.now(timezone.utc).isoformat()
             report["runtime_versions"] = {name:importlib.metadata.version(name) for name in ("SQLAlchemy","qdrant-client","PyMuPDF")}

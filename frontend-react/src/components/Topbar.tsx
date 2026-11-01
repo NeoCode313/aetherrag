@@ -25,7 +25,7 @@ export function Topbar({m, theme, onTheme}:{m:Workbench; theme:string; onTheme:(
         </div>
         <button id="btn-open-settings" className="btn btn-glass" onClick={()=>m.setSettingsOpen(true)}>Generador IA</button>
         <button id="btn-session" className="btn btn-glass" onClick={()=>m.setAuth(previous=>({...previous,open:true}))}>{m.user ? 'Sesión: '+m.user : 'Iniciar sesión'}</button>
-        <button id="btn-logout" className={'btn btn-ghost '+(!m.user || ['test','development'].includes(m.user) ? 'hidden':'')} onClick={()=>void m.logout()}>Cerrar sesión</button>
+        <button id="btn-logout" className={'btn btn-ghost '+(!m.user ? 'hidden':'')} onClick={()=>void m.logout()}>Cerrar sesión</button>
         <button id="btn-theme" className="btn btn-icon" aria-label={'Cambiar a tema '+(theme==='dark' ? 'claro':'oscuro')} onClick={onTheme}>{theme==='dark' ? '☀':'☾'}</button>
         <a className="btn btn-icon" href="/docs" target="_blank" rel="noopener noreferrer">API Docs</a>
       </div>
