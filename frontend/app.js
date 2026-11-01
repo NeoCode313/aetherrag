@@ -6,6 +6,7 @@ const state = {
   pollingTimer: null, pollingGeneration: 0, opsTimer: null, opsStartMs: 0,
   activeAbortController: null, operationSeq: 0, csrfToken: "", user: null,
   credentialsEditable: false, registrationRequired: false, setupToken: "", localRegistration: false,
+  selectedDocumentIds: new Set(),
 };
 const nativeFetch = window.fetch.bind(window);
 const byId = (id) => document.getElementById(id);
@@ -111,7 +112,7 @@ function setVisualOpsState(mode, label) {
   byId("btn-cancel-ops").classList.toggle("hidden", !["working", "warning"].includes(mode));
 }
 
-function startOpsMonitor(title, detail = "Recuperación híbrida RRF (vectores densos + BM25)…") {
+function startOpsMonitor(title, detail = "Recuperación híbrida RRF (vectores densos + léxico TF)…") {
   clearInterval(state.opsTimer);
   state.opsStartMs = performance.now();
   setVisualOpsState("working", "PROCESANDO");
@@ -124,7 +125,7 @@ function startOpsMonitor(title, detail = "Recuperación híbrida RRF (vectores d
     byId("live-ops-elapsed").textContent = elapsed;
     byId("timer-activity").textContent = elapsed;
     const stageMsg = seconds < 1.4
-      ? "Recuperación híbrida RRF (vectores densos + BM25)…"
+      ? "Recuperación híbrida RRF (vectores densos + léxico TF)…"
       : seconds < 6.0
         ? "Sintetizando respuesta y verificando citas con el modelo…"
         : "Espera prolongada · Generando salida estructurada del modelo…";
@@ -203,7 +204,6 @@ async function refreshSystemStatus() {
     ? "Configura como propietario: claves privadas persistentes, sin incluirlas en Git."
     : "Servidor: claves y endpoints se configuran en .env y requieren recrear API/worker. Aquí solo eliges proveedor y modelo.";
   byId("btn-preset-groq-qwen").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
-  byId("btn-preset-groq").disabled = !state.credentialsEditable && data.openai_backend !== "groq";
   byId("btn-preset-openai").disabled = !state.credentialsEditable && data.openai_backend !== "openai";
   byId("label-provider").textContent = (data.environment || "test") + " · v" + (data.app_version || "4") + " · " + (data.build_id || "fixture") + " · " + data.llm_model;
   byId("dot-provider").className = data.provider_ready === false ? "status-dot err" : "status-dot ok";
@@ -211,6 +211,12 @@ async function refreshSystemStatus() {
   byId("label-cb").textContent = String(data.circuit_breaker_state).toUpperCase();
   byId("dot-cb").className = `status-dot ${data.circuit_breaker_state === "closed" ? "ok" : "err"}`;
   byId("embedding-model-note").textContent = `Embeddings fijos: ${data.embedding_model}. Cambiar el generador no modifica el índice.`;
+  byId("btn-semantic-index").classList.toggle("hidden", data.semantic_retrieval !== false);
+  byId("btn-semantic-index").disabled = data.migration_status === "running";
+  byId("capability-note").textContent = data.generation_mode === "extractive"
+      ? "Modo extractivo de diagnóstico: devuelve citas literales. Configura un generador para redactar explicaciones; activa visión si necesitas interpretar los píxeles de una imagen."
+    : data.supports_images ? "Generación con visión habilitada: puede utilizar texto e imágenes adjuntas."
+      : "El generador actual utiliza texto, tablas, leyendas y etiquetas extraídas. Para preguntas dependientes de píxeles, configura un modelo con visión.";
   if (data.openai_base_url) byId("input-openai-endpoint").value = data.openai_base_url;
   if (data.ollama_base_url) byId("input-ollama-endpoint").value = data.ollama_base_url;
   byId("input-supports-images").checked = data.supports_images === true;
@@ -236,6 +242,8 @@ async function refreshDocuments() {
   const response = await apiFetch("/api/v1/documents");
   if (!response.ok) return;
   const documents = await response.json();
+  const available = new Set(documents.map(doc => doc.document_id));
+  for (const selected of state.selectedDocumentIds) if (!available.has(selected)) state.selectedDocumentIds.delete(selected);
   byId("doc-count-badge").textContent = `${documents.length} PDFs`;
   const list = byId("doc-list");
   list.replaceChildren();
@@ -244,12 +252,21 @@ async function refreshDocuments() {
     const card = node("div", "doc-card");
     const top = node("div", "doc-card-top");
     const name = node("div", "doc-name", `📄 ${doc.file_name}`);
+    const select = node("input");
+    select.type = "checkbox";
+    select.checked = state.selectedDocumentIds.has(doc.document_id);
+    select.setAttribute("aria-label", "Consultar " + doc.file_name);
+    select.addEventListener("change", () => {
+      if (select.checked) state.selectedDocumentIds.add(doc.document_id);
+      else state.selectedDocumentIds.delete(doc.document_id);
+      state.history = [];
+    });
     name.title = doc.file_name;
     const remove = node("button", "doc-delete-btn", "✕");
     remove.type = "button";
     remove.title = "Eliminar documento";
     remove.addEventListener("click", () => deleteDocument(doc.document_id));
-    top.append(name, remove);
+    top.append(select, name, remove);
     const metrics = node("div", "doc-metrics");
     for (const [key, label] of [["page_count", "Páginas"], ["chunk_count", "Chunks"], ["visual_count", "Figuras"], ["table_count", "Fragmentos de tabla"]]) {
       const item = node("div", "doc-metric");
@@ -268,6 +285,7 @@ async function deleteDocument(documentId) {
     const response = await apiFetch(`/api/v1/documents/${encodeURIComponent(documentId)}`, { method: "DELETE" });
     if (!response.ok) throw new Error(errorText(await response.json(), `HTTP ${response.status}`));
     state.history = [];
+    state.selectedDocumentIds.delete(documentId);
     await Promise.all([refreshDocuments(), refreshSystemStatus()]);
   } catch (error) { reportOpsProblem("No se pudo eliminar el documento", String(error)); }
 }
@@ -343,7 +361,11 @@ function startJobPolling(jobId, fileName) {
       if (["completed", "failed"].includes(job.status)) {
         state.pollingTimer = null;
         if (job.status === "failed") reportOpsProblem("La ingesta falló", job.error || job.message);
-        else { state.history = []; finishOpsMonitor(); }
+        else {
+          state.history = [];
+          if (job.document_id) state.selectedDocumentIds = new Set([job.document_id]);
+          finishOpsMonitor();
+        }
         await Promise.all([refreshDocuments(), refreshSystemStatus()]);
         return;
       }
@@ -419,7 +441,7 @@ async function submitQuestion(question) {
   const bars = node("span", "thinking-bars");
   bars.setAttribute("aria-hidden", "true");
   bars.append(node("i"), node("i"), node("i"));
-  left.append(bars, node("span", "mono thinking-stage-text", "Recuperación híbrida RRF (vectores densos + BM25)…"));
+  left.append(bars, node("span", "mono thinking-stage-text", "Recuperación híbrida RRF (vectores densos + léxico TF)…"));
   const right = node("div", "thinking-inline-right");
   right.append(node("span", "mono thinking-elapsed-pill", "0.0s"));
   const stop = node("button", "thinking-cancel-btn", "Detener espera");
@@ -435,7 +457,8 @@ async function submitQuestion(question) {
   try {
     const response = await apiFetch("/api/v1/chat/query", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, history: state.history.slice(-6) }), signal: operation.controller.signal,
+      body: JSON.stringify({ question, history: state.history.slice(-6),
+        ...(state.selectedDocumentIds.size ? {document_ids: [...state.selectedDocumentIds]} : {}) }), signal: operation.controller.signal,
     });
     const data = await response.json();
     if (!response.ok) throw new Error(errorText(data, `HTTP ${response.status}`));
@@ -634,7 +657,7 @@ function renderAssistantMessage(container, data, messageId) {
       "cyan",
     ),
     buildMetricPill(
-      "SCORE LÉXICO BM25",
+      "SCORE LÉXICO TF",
       numberText(lexicalVal),
       "Coincidencia exacta de tokens",
       lexicalVal != null ? Math.min(1, Number(lexicalVal) / 8) : null,
@@ -699,7 +722,7 @@ function renderAssistantMessage(container, data, messageId) {
       row.append(
         node("span", "audit-cite-ref", `[${c.ref}] ${c.modality || c.kind || "text"}`),
         node("span", "audit-cite-doc", `${c.document_name} (p.${c.page}) · ${c.section}`),
-        node("span", "audit-cite-scores", `Cos=${numberText(c.dense_score)} · BM25=${numberText(c.sparse_score)} · RRF=${numberText(c.score, 5)} · BBox=${boxText(c.bbox)}`),
+        node("span", "audit-cite-scores", `Cos=${numberText(c.dense_score)} · TF=${numberText(c.sparse_score)} · RRF=${numberText(c.score, 5)} · BBox=${boxText(c.bbox)}`),
       );
       tableWrap.append(row);
     }
@@ -900,10 +923,6 @@ document.addEventListener("DOMContentLoaded", () => {
     byId("input-openai-endpoint").value = "https://api.groq.com/openai/v1";
     byId("input-openai-model").value = "qwen/qwen3.8-27b";
   });
-  byId("btn-preset-groq").addEventListener("click", () => {
-    byId("input-openai-endpoint").value = "https://api.groq.com/openai/v1";
-    byId("input-openai-model").value = "llama-3.3-70b-versatile";
-  });
   byId("btn-preset-openai").addEventListener("click", () => {
     byId("input-openai-endpoint").value = "https://api.openai.com/v1";
     byId("input-openai-model").value = "gpt-4o-mini";
@@ -974,9 +993,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) { byId("login-message").textContent = String(error); }
     finally { byId("register-password").value = ""; byId("register-confirm").value = ""; byId("btn-register").disabled = false; }
   });
-  byId("btn-recover-index").addEventListener("click", async () => {
+  const recoverIndex = async (path) => {
     try {
-      const response = await apiFetch("/api/v1/system/recover-index", { method: "POST" });
+      const response = await apiFetch(path, { method: "POST" });
       if (!response.ok) throw new Error(errorText(await response.json(), "Recuperación rechazada"));
       byId("btn-recover-index").disabled = true;
       const timer = setInterval(async () => {
@@ -994,7 +1013,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 1500);
       startOpsMonitor("Recuperando índice", "Reconstrucción aislada; no cierres la aplicación.");
     } catch (error) { reportOpsProblem("Recuperación no iniciada", String(error)); }
-  });
+  };
+  byId("btn-recover-index").addEventListener("click", () => recoverIndex("/api/v1/system/recover-index"));
+  byId("btn-semantic-index").addEventListener("click", () => recoverIndex("/api/v1/system/semantic-index"));
   byId("btn-test-provider").addEventListener("click", async () => {
     try {
       const response = await apiFetch("/api/v1/system/test-provider", { method: "POST" });
@@ -1029,7 +1050,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await apiFetch("/api/v1/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       cancelActiveOperation();
-      state.history = []; state.responses.clear();
+      state.history = []; state.responses.clear(); state.selectedDocumentIds.clear();
       byId("chat-stream").replaceChildren(); byId("doc-list").replaceChildren();
       clearRightInspector();
       showLogin("Sesión cerrada.");

@@ -33,6 +33,7 @@
 
     <div class="topbar-actions">
       <button type="button" class="btn btn-glass hidden" id="btn-recover-index">Recuperar índice anterior</button>
+      <button type="button" class="btn btn-glass hidden" id="btn-semantic-index">Activar búsqueda semántica</button>
       <button type="button" class="btn btn-glass" id="btn-session">Comprobando sesión…</button>
       <button type="button" class="btn btn-ghost hidden" id="btn-logout">Cerrar sesión</button>
       <div class="telemetry-pills">
@@ -47,7 +48,7 @@
           <span class="pill-label">LLM:</span>
           <strong id="label-provider">Cargando…</strong>
         </div>
-        <div class="pill" id="pill-vector" title="Base de Datos Vectorial Híbrida (Dense + BM25)">
+        <div class="pill" id="pill-vector" title="Base de Datos Vectorial Híbrida (Denso + léxico TF)">
           <span class="status-dot ok"></span>
           <span class="pill-label">Vector DB:</span>
           <strong id="label-vector">Qdrant RRF</strong>
@@ -138,6 +139,7 @@
       <div class="section-divider">
         <span>CORPUS DOCUMENTAL INDEXADO</span>
       </div>
+      <p class="panel-subtitle">Marca los PDFs que quieres consultar. Sin selección se consulta todo el corpus.</p>
       <div class="doc-list" id="doc-list">
         <!-- Populated dynamically -->
       </div>
@@ -147,7 +149,7 @@
         <div class="arch-card-title">Herramientas de inspección</div>
         <ul class="arch-list">
           <li><span class="dot-cyan"></span><strong>Layout:</strong> Tablas por filas y contexto de sección</li>
-          <li><span class="dot-emerald"></span><strong>Fusión Híbrida RRF:</strong> Coseno denso + BM25 léxico ($k=60$)</li>
+          <li><span class="dot-emerald"></span><strong>Fusión Híbrida RRF:</strong> Coseno denso + léxico TF</li>
           <li><span class="dot-amber"></span><strong>Referencias:</strong> Validación de identificadores y abstención</li>
         </ul>
       </div>
@@ -374,6 +376,7 @@
         <div><h3 id="settings-title">Generador de respuestas</h3>
           <p>Configura tu proveedor. Las claves se guardan de forma privada en esta instalación.</p>
           <p id="embedding-model-note">El proveedor de embeddings permanece fijo para conservar la compatibilidad del índice.</p>
+          <p id="capability-note"></p>
           <p id="provider-config-note">Las claves y endpoints se configuran de forma privada en el servidor.</p>
         </div>
         <button type="button" class="btn btn-icon" id="btn-close-settings">✕</button>
@@ -407,7 +410,6 @@
             <label class="field-label" for="input-openai-endpoint">Endpoint compatible autorizado (Groq / OpenAI)</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq-qwen">⚡ Groq (Qwen 3.8 27B)</button>
-              <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-groq">⚡ Groq (Llama 3.3 70B)</button>
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-openai">🌐 OpenAI Oficial</button>
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-xai">Grok / xAI</button>
               <button type="button" class="btn btn-xs btn-ghost" id="btn-preset-lmstudio">LM Studio / vLLM</button>

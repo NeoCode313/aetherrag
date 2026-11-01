@@ -66,6 +66,12 @@ class SparseEncoder(Protocol):
 
 @runtime_checkable
 class VectorStore(Protocol):
+    def context_chunks(self, document_ids: Sequence[str] | None = None, *,
+                       pages: Sequence[int] = (), figures_only: bool = False,
+                       figure_numbers: Sequence[int | str] = (), table_numbers: Sequence[int | str] = (),
+                       limit: int = 8) -> list[Chunk]:
+        return []
+
     def ensure_collection(self, dimension: int) -> None: ...
 
     def upsert(

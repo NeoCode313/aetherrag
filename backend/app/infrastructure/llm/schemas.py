@@ -57,8 +57,35 @@ class AnswerSchema(BaseModel):
         return self
 
 
-def _strict_json_schema() -> dict:
-    schema = AnswerSchema.model_json_schema()
+class ProviderEvidenceSchema(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    evidence_id: str = Field(pattern=r"^[EF][1-9][0-9]*$", max_length=12)
+    quote: str | None = Field(description="E: exact source excerpt. F: null; the image itself is evidence.")
+
+    @model_validator(mode="after")
+    def check_modality(self):
+        if self.evidence_id.startswith("E") and not (self.quote and self.quote.strip()):
+            raise ValueError("Text evidence requires an excerpt")
+        if self.evidence_id.startswith("F") and self.quote is not None:
+            raise ValueError("Visual evidence uses quote null")
+        return self
+
+
+class ProviderClaimSchema(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    statement: str = Field(min_length=1, max_length=6000)
+    evidence_refs: list[ProviderEvidenceSchema] = Field(min_length=1, max_length=8)
+
+
+class ProviderAnswerSchema(BaseModel):
+    """The model produces content/evidence; the server owns flags, spans and rendering."""
+    model_config = ConfigDict(strict=True, extra="forbid")
+    claims: list[ProviderClaimSchema] = Field(max_length=12)
+    missing_facets: list[str] = Field(max_length=12)
+
+
+def _strict_json_schema(model=ProviderAnswerSchema) -> dict:
+    schema = model.model_json_schema()
     def visit(node):
         if isinstance(node, dict):
             node.pop("default", None)
@@ -78,7 +105,7 @@ RAG_ANSWER_JSON_SCHEMA = _strict_json_schema()
 
 
 def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
-                            output_tokens: int | None = None) -> GeneratedAnswer:
+                            output_tokens: int | None = None, *, generated_mode: str | None = None) -> GeneratedAnswer:
     if not isinstance(raw_text, str):
         raise ProviderContractError("invalid_json")
     cleaned = raw_text.strip()
@@ -91,6 +118,18 @@ def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
     except (json.JSONDecodeError, ValueError, TypeError):
         raise ProviderContractError("invalid_json") from None
     try:
+        if isinstance(data, dict) and "claims" in data and set(data) <= {"claims", "missing_facets"}:
+            wire = ProviderAnswerSchema.model_validate(data)
+            references = [ref for claim in wire.claims for ref in claim.evidence_refs]
+            return GeneratedAnswer(answer="", abstained=not bool(wire.claims),
+                evidence_coverage="partial" if wire.claims else "none",
+                abstention_reason="; ".join(wire.missing_facets)[:1500] if not wire.claims else "",
+                cited_ids=list(dict.fromkeys(ref.evidence_id for ref in references if ref.evidence_id.startswith("E"))),
+                used_visual_ids=list(dict.fromkeys(ref.evidence_id for ref in references if ref.evidence_id.startswith("F"))),
+                claims=[GeneratedClaim(claim.statement, [EvidenceReference(ref.evidence_id, quote=ref.quote)
+                        for ref in claim.evidence_refs]) for claim in wire.claims],
+                missing_facets=wire.missing_facets, input_tokens=input_tokens, output_tokens=output_tokens)
+        # Compatibility with existing adapters/fixtures during the contract migration.
         parsed = AnswerSchema.model_validate(data)
     except ValidationError as exc:
         # Never echo model text, extra keys, values or Pydantic's input in errors/logs.
@@ -103,7 +142,7 @@ def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
         answer=parsed.answer, abstained=parsed.abstained,
         abstention_reason=parsed.abstention_reason, evidence_coverage=parsed.evidence_coverage,
         cited_ids=parsed.cited_ids, used_visual_ids=parsed.used_visual_ids,
-        answer_mode=parsed.answer_mode, missing_facets=parsed.missing_facets,
+        answer_mode=generated_mode or parsed.answer_mode, missing_facets=parsed.missing_facets,
         claims=[GeneratedClaim(statement=claim.statement, evidence_refs=[
             EvidenceReference(evidence_id=ref.evidence_id, quote=ref.quote,
                               span_start=ref.span_start, span_end=ref.span_end,
@@ -113,10 +152,29 @@ def parse_structured_answer(raw_text: str, input_tokens: int | None = None,
     )
 
 
-def portable_output_schema():
-    """Vendor subset; the original Pydantic constraints still validate every response."""
+def response_schema(prompt=None, images=()):
     import copy
     schema = copy.deepcopy(RAG_ANSWER_JSON_SCHEMA)
+    frame = re.search(r"<evidence_data>(.*?)</evidence_data>", prompt or "", re.DOTALL)
+    if frame:
+        try:
+            evidence = json.loads(frame.group(1))
+            aliases = [row["id"] for row in evidence if isinstance(row, dict)
+                       and re.fullmatch(r"E[1-9][0-9]*", str(row.get("id", "")))]
+            aliases.extend(image.alias for image in images if re.fullmatch(r"F[1-9][0-9]*", image.alias))
+            if aliases:
+                schema["$defs"]["ProviderEvidenceSchema"]["properties"]["evidence_id"]["enum"] = list(dict.fromkeys(aliases))
+            else:
+                schema["properties"]["claims"]["maxItems"] = 0
+        except (ValueError, TypeError, KeyError):
+            pass
+    return schema
+
+
+def portable_output_schema(prompt=None, images=()):
+    """Vendor subset; the original Pydantic constraints still validate every response."""
+    import copy
+    schema = response_schema(prompt, images)
     unsupported = {"minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "pattern"}
     def visit(value):
         if isinstance(value, dict):

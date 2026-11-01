@@ -36,6 +36,8 @@ def _build_status(container: AppContainer) -> SystemStatusResponse:
         generation_id=container.catalog.active_generation()["generation_id"],
         supports_images=getattr(container.llm_provider, "supports_images", False),
         credentials_editable=True,
+        semantic_retrieval=container.catalog.profile_by_id(container.catalog.active_generation()["profile_id"])["provider"] != "local",
+        generation_mode="extractive" if container.active_provider_name == "local" else "generative",
         provider_ready=getattr(container.llm_provider, "supports_structured_output", True),
         openai_base_url=container.settings.openai_base_url,
         ollama_base_url=container.settings.ollama_base_url,
@@ -100,7 +102,7 @@ def healthcheck(container: AppContainer = Depends(get_container)):
 
 @router.get("/version")
 def version(container: AppContainer = Depends(get_container)):
-    return {"version": "4.0.0", "build_id": container.build_id, "environment": container.settings.environment,
+    return {"version": "4.1.0", "build_id": container.build_id, "environment": container.settings.environment,
             "pipeline": container.settings.pipeline_version, "index_compatible": container.index_state()["compatible"]}
 
 
@@ -108,6 +110,11 @@ def version(container: AppContainer = Depends(get_container)):
 def recover_index(container: AppContainer = Depends(get_container)):
     from app.application.services.index_recovery import start_recovery
     return start_recovery(container)
+
+
+@router.post("/semantic-index", status_code=202, summary="Reconstruir con embeddings semánticos locales verificados")
+def enable_semantic_index(container: AppContainer = Depends(get_container)):
+    return container.enable_semantic_index()
 
 
 @router.post("/test-provider", summary="Probar el proveedor guardado sin enviar documentos privados")

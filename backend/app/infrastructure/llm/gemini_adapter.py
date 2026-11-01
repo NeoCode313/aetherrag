@@ -111,11 +111,11 @@ class GeminiLLMProvider(LLMProvider):
                     contents=[types.Content(role="user", parts=parts)],
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction, response_mime_type="application/json",
-                        response_json_schema=portable_output_schema(), max_output_tokens=self._max_output_tokens))
+                        response_json_schema=portable_output_schema(prompt, images), max_output_tokens=self._max_output_tokens))
                 usage = getattr(response, "usage_metadata", None)
                 return parse_structured_answer(response.text or "",
                     input_tokens=getattr(usage, "prompt_token_count", None),
-                    output_tokens=getattr(usage, "candidates_token_count", None))
+                    output_tokens=getattr(usage, "candidates_token_count", None), generated_mode="grounded_answer")
             except Exception as exc:
                 raise _translate_gemini_error(exc) from exc
 

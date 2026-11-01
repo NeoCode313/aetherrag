@@ -26,6 +26,12 @@ jobs:
           cache-dependency-path: requirements.lock
       - run: python -m pip install --require-hashes -r requirements.lock
       - run: python -B -m pytest -q -p no:cacheprovider --junitxml=test-results.xml
+      - name: Pinned multilingual embeddings and safe index migration (no cloud inference)
+        env:
+          SEMANTIC_TEST_MODEL_DIR: .cache/e5-small
+        run: |
+          python -B backend/scripts/download_semantic_model.py --directory .cache/e5-small
+          python -B -m pytest backend/tests/integration/test_semantic_retrieval.py -q -p no:cacheprovider
       - name: Synthetic facets and source locations (local provider)
         run: python -B backend/scripts/evaluate_rag_metrics.py --synthetic-demo --dataset backend/evaluation/synthetic_suite_v3.jsonl --output synthetic-results.json
       - name: Concurrent local integrity and latency budgets

@@ -304,6 +304,44 @@ class QdrantHybridVectorStore(VectorStore):
             if pt.payload is not None and float(pt.score) > 0.0
         ]
 
+    def context_chunks(self, document_ids=None, *, pages=(), figures_only=False, figure_numbers=(), table_numbers=(), limit=8):
+        """Bounded layout context, with the same generation/document authorization filter."""
+        if not self._collection_exists():
+            return []
+        scope = self._build_filter(document_ids)
+        conditions = list(scope.must or []) if scope else []
+        if pages:
+            conditions.append(qmodels.FieldCondition(key="page", match=qmodels.MatchAny(any=list(pages))))
+        if figures_only:
+            conditions.append(qmodels.FieldCondition(key="kind", match=qmodels.MatchValue(value="figure")))
+        if table_numbers:
+            conditions.append(qmodels.FieldCondition(key="kind", match=qmodels.MatchValue(value="table")))
+        if figure_numbers:
+            matches = []
+            integers = [number for number in figure_numbers if isinstance(number, int)]
+            strings = [number for number in figure_numbers if isinstance(number, str)]
+            for values in (integers, strings):
+                if values:
+                    matches.append(qmodels.FieldCondition(key="visuals[].asset.figure_number",
+                        match=qmodels.MatchAny(any=values)))
+            conditions.append(qmodels.Filter(should=matches))
+        chunks, offset = [], None
+        while len(chunks) < 512:
+            points, offset = self._call(self.client.scroll, self.collection_name,
+                scroll_filter=qmodels.Filter(must=conditions), offset=offset,
+                limit=128, with_payload=True, with_vectors=False)
+            chunks.extend(_chunk_from_payload(point.payload) for point in points if point.payload)
+            if offset is None:
+                break
+        if table_numbers:
+            from app.application.services.spatial_linker import TABLE_CAPTION_RE, figure_number_from_caption
+            def label(chunk):
+                match = TABLE_CAPTION_RE.match(chunk.text)
+                return figure_number_from_caption("Figura " + match.group(1)) if match else None
+            chunks = [chunk for chunk in chunks if label(chunk) in table_numbers]
+        chunks.sort(key=lambda chunk: (chunk.page, chunk.bbox.y0, chunk.bbox.x0, chunk.document_id))
+        return chunks[:max(1, min(limit, 32))]
+
     def delete_document(self, document_id: str) -> None:
         if not self._collection_exists():
             return

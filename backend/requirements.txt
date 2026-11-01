@@ -17,3 +17,6 @@ SQLAlchemy>=2.0,<2.1
 psycopg[binary]>=3.2,<4
 itsdangerous>=2.2,<3
 argon2-cffi>=23.1
+onnxruntime>=1.23,<2
+tokenizers>=0.22,<0.24
+huggingface-hub>=0.34,<1

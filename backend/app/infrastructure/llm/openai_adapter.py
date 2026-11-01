@@ -14,7 +14,7 @@ from app.domain.entities import GeneratedAnswer, ImageInput
 from app.domain.ports import EmbeddingProvider, LLMProvider
 from app.domain.exceptions import ProviderError, ProviderContractError
 from app.infrastructure.llm.ollama_adapter import _translate_http_error
-from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer
+from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer, response_schema
 from app.infrastructure.resilience import ResilientExecutor
 
 
@@ -66,8 +66,8 @@ class OpenAILLMProvider(LLMProvider):
             raise ProviderError("El perfil OpenAI-compatible no tiene visión habilitada.")
         system_instruction += (
             "\nPara referencias textuales E copia quote literalmente del campo text y usa "
-            "span_start=null, span_end=null, visual_region=null. No calcules offsets ni completes citas de memoria. "
-            "Las referencias F solo pueden apuntar a imágenes adjuntas.")
+            "solo evidence_id y quote. No calcules offsets ni completes citas de memoria. "
+            "Las referencias F solo pueden apuntar a imágenes adjuntas y usan quote=null.")
         if images:
             user_content: Any = [{"type": "text", "text": prompt}]
             for img in images:
@@ -83,14 +83,15 @@ class OpenAILLMProvider(LLMProvider):
             user_content = prompt
 
         strict_groq = self._model in {"openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"}
+        schema = response_schema(prompt, images)
         json_mode = self._response_format == "json_object" or (self._response_format == "auto" and self._is_groq and not strict_groq)
         if json_mode:
             resp_fmt: dict[str, Any] = {"type": "json_object"}
             system_instruction = (
                 system_instruction
                 + "\n\nDevuelve exclusivamente JSON que cumpla este esquema. No agregues explicaciones ni bloques de razonamiento. "
-                + "Cuando falte evidencia, usa abstained=true, evidence_coverage=none y claims=[]; nunca inventes citas.\n"
-                + json.dumps(RAG_ANSWER_JSON_SCHEMA, ensure_ascii=False)
+                + "Cuando falte evidencia, usa claims=[] y explica el motivo en missing_facets; nunca inventes citas.\n"
+                + json.dumps(schema, ensure_ascii=False)
             )
         else:
             resp_fmt = {
@@ -98,7 +99,7 @@ class OpenAILLMProvider(LLMProvider):
                 "json_schema": {
                     "name": "rag_answer",
                     "strict": True,
-                    "schema": {**RAG_ANSWER_JSON_SCHEMA, "additionalProperties": False},
+                    "schema": schema,
                 },
             }
 
@@ -110,6 +111,12 @@ class OpenAILLMProvider(LLMProvider):
             ],
             "response_format": resp_fmt,
         }
+        # Bound reserved output quota as well as response size; provider defaults can
+        # reserve a full context window and reject otherwise small RAG requests.
+        limit_name = "max_completion_tokens" if urlsplit(self._base_url).hostname in {"api.groq.com", "api.openai.com"} else "max_tokens"
+        payload[limit_name] = 1600
+        if self._is_groq:
+            payload["temperature"] = 0
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
         provider_label = "Groq" if self._is_groq else "OpenAI"
 
@@ -130,7 +137,8 @@ class OpenAILLMProvider(LLMProvider):
                         usage = data.get("usage", {})
                         try:
                             return parse_structured_answer(choice["message"].get("content"),
-                                input_tokens=usage.get("prompt_tokens"), output_tokens=usage.get("completion_tokens"))
+                                input_tokens=usage.get("prompt_tokens"), output_tokens=usage.get("completion_tokens"),
+                                generated_mode="grounded_answer")
                         except ProviderContractError as error:
                             if attempt + 1 >= attempts:
                                 raise

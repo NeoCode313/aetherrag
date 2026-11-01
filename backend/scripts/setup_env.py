@@ -28,7 +28,7 @@ def configuration(username: str, password: str) -> str:
         "REDIS_PASSWORD": redis_password, "REDIS_URL": f"redis://:{redis_password}@redis:6379/0",
         "QDRANT_API_KEY": secrets.token_urlsafe(32), "QDRANT_URL": "http://qdrant:6333",
         "QUEUE_BACKEND": "celery", "STATE_BACKEND": "postgres", "VECTOR_BACKEND": "qdrant",
-        "AUTO_SEED_SAMPLE_MANUAL": "false", "LLM_PROVIDER": "local", "EMBEDDING_PROVIDER": "local",
+        "AUTO_SEED_SAMPLE_MANUAL": "false", "LLM_PROVIDER": "local", "EMBEDDING_PROVIDER": "onnx",
         "EMBEDDING_DIMENSION": "768", "PIPELINE_VERSION": "layout-v3",
         "GEMINI_API_KEY": "", "OPENAI_API_KEY": "", "LLM_SUPPORTS_IMAGES": "false",
     }

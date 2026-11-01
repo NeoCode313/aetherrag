@@ -39,6 +39,10 @@ class TransientProviderError(ProviderError):
 class RateLimitError(TransientProviderError):
     """Provider quota / rate limit exceeded (HTTP 429). Retry with backoff."""
 
+    def __init__(self, message: str, *, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
 
 class ProviderUnavailableError(ProviderError):
     """Circuit breaker is open: fail fast instead of hammering a dependency that is down."""

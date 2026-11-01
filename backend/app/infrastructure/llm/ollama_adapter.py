@@ -8,6 +8,8 @@ application use cases.
 from __future__ import annotations
 
 import base64
+import json
+import math
 from collections.abc import Sequence
 from typing import Any
 
@@ -16,7 +18,7 @@ import httpx
 from app.domain.entities import GeneratedAnswer, ImageInput
 from app.domain.exceptions import ProviderError, RateLimitError, TransientProviderError
 from app.domain.ports import EmbeddingProvider, LLMProvider
-from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer
+from app.infrastructure.llm.schemas import RAG_ANSWER_JSON_SCHEMA, parse_structured_answer, response_schema
 from app.infrastructure.resilience import ResilientExecutor
 
 
@@ -26,7 +28,15 @@ def _translate_http_error(exc: Exception, provider: str = "Ollama") -> Exception
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
         if status == 429:
-            return RateLimitError(f"{provider}: límite de solicitudes o cuota (HTTP 429). Espera o cambia de proveedor/modelo; la carga de documentos sigue disponible.")
+            try:
+                retry_after = max(0.0, float(exc.response.headers.get("retry-after", "")))
+                if not math.isfinite(retry_after):
+                    retry_after = None
+            except ValueError:
+                retry_after = None
+            wait = f" Reintenta después de {int(retry_after)+1} segundos." if retry_after is not None else ""
+            return RateLimitError(f"{provider}: límite de solicitudes o cuota (HTTP 429)." + wait +
+                " La carga de documentos sigue disponible.", retry_after=retry_after)
         if status >= 500:
             return TransientProviderError(f"{provider} server error (HTTP {status})")
         return ProviderError(f"{provider} HTTP {status}")
@@ -72,6 +82,10 @@ class OllamaLLMProvider(LLMProvider):
     ) -> GeneratedAnswer:
         if images and not self.supports_images:
             raise ProviderError("El perfil Ollama no tiene visión habilitada.")
+        schema = response_schema(prompt, images)
+        system_instruction += ("\nResponde con este esquema JSON. Cada afirmación debe citar E para texto o F para imágenes; "
+            "no confundir ambas modalidades. Para E usa quote literal. Para F usa quote=null. "
+            "Responde las partes sustentadas aunque falte otra parte. Esquema:\n" + json.dumps(schema))
         aliases = "\n".join(f"Imagen {index}: {image.alias}" for index, image in enumerate(images, 1))
         user_msg: dict[str, Any] = {"role": "user", "content": prompt + ("\n" + aliases if images else "")}
         if images:
@@ -83,9 +97,10 @@ class OllamaLLMProvider(LLMProvider):
                 {"role": "system", "content": system_instruction},
                 user_msg,
             ],
-            "format": RAG_ANSWER_JSON_SCHEMA,
+            "format": schema,
             "stream": False,
-            "options": {"temperature": 0.1},
+            "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 2400},
+            "think": False,
         }
 
         def _invoke() -> GeneratedAnswer:
@@ -99,6 +114,7 @@ class OllamaLLMProvider(LLMProvider):
                         content,
                         input_tokens=data.get("prompt_eval_count"),
                         output_tokens=data.get("eval_count"),
+                        generated_mode="grounded_answer",
                     )
             except Exception as exc:
                 raise _translate_http_error(exc, "Ollama") from exc

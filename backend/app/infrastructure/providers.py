@@ -52,11 +52,10 @@ def embedding_profile(settings) -> dict:
     if provider == "auto" and settings.environment == "test":
         provider = "local"
     if provider == "auto":
-        provider = ("gemini" if settings.gemini_api_key else
-                    "openai" if settings.openai_api_key and "api.openai.com" in settings.openai_base_url
-                    else "local")
+        provider = "onnx"
     models = {"gemini": settings.gemini_embedding_model, "openai": settings.openai_embedding_model,
-              "ollama": settings.ollama_embedding_model, "local": "local-semantic-hash-v2"}
+              "ollama": settings.ollama_embedding_model, "local": "local-semantic-hash-v2",
+              "onnx": "intfloat/multilingual-e5-small"}
     base = settings.ollama_base_url if provider == "ollama" else settings.openai_base_url if provider == "openai" else ""
     if base:
         base = validate_endpoint(base, settings.provider_allowed_hosts)
@@ -64,6 +63,12 @@ def embedding_profile(settings) -> dict:
               "base_url": base, "normalization": "l2", "pipeline_version": settings.pipeline_version}
     result["pipeline_config"] = {name: getattr(settings, name) for name in (
         "chunk_max_tokens", "chunk_overlap_ratio", "spatial_max_distance", "ocr_enabled", "ocr_language")}
+    if provider == "onnx":
+        from app.infrastructure.llm.semantic_embedding import REVISION, FILES
+        result.update(dimension=384, revision=REVISION, model_sha256=FILES["model.onnx"][1],
+                      query_prefix="query: ", document_prefix="passage: ")
+        result["pipeline_config"].update(chunk_max_tokens=min(480, settings.chunk_max_tokens),
+                                         token_counter="e5", allow_large_vectors=True)
     result["profile_id"] = "emb_" + digest(result)[:24]
     return result
 
@@ -73,6 +78,11 @@ def make_embedder(profile: dict, settings, executor):
     common = {"dimension": profile["dimension"]}
     if provider == "local":
         return LocalSemanticEmbeddingProvider(**common)
+    if provider == "onnx":
+        from app.infrastructure.llm.semantic_embedding import MultilingualE5EmbeddingProvider
+        if profile["dimension"] != 384:
+            raise ValidationError("E5 requiere un índice de 384 dimensiones")
+        return MultilingualE5EmbeddingProvider(settings.embedding_model_dir)
     if provider == "gemini":
         if not settings.gemini_api_key:
             raise ValidationError("GEMINI_API_KEY no está configurada para este perfil")

@@ -58,6 +58,7 @@ class PyMuPDFDocumentParser(DocumentParser):
         max_visuals_per_page: int = 32,
         max_text_chars: int = 2_000_000,
         max_total_render_pixels: int = 500_000_000,
+        allow_large_vectors: bool = False,
     ) -> None:
         if any(dpi < 36 or dpi > 300 for dpi in (crop_dpi, page_preview_dpi, ocr_dpi)):
             raise ValueError("PDF rendering/OCR DPI must be between 36 and 300")
@@ -77,6 +78,7 @@ class PyMuPDFDocumentParser(DocumentParser):
         self.max_visuals_per_page = max_visuals_per_page
         self.max_text_chars = max_text_chars
         self.max_total_render_pixels = max_total_render_pixels
+        self.allow_large_vectors = allow_large_vectors
 
     def parse(
         self,
@@ -456,7 +458,7 @@ class PyMuPDFDocumentParser(DocumentParser):
             clusters = []
         for crect in clusters:
             b = self._canonical_box(page, crect, pw, ph)
-            if not self._is_valid_visual_box(b, table_boxes):
+            if not self._is_valid_visual_box(b, table_boxes, allow_full_page=self.allow_large_vectors):
                 continue
             # Skip vector boxes that are mostly covered by an already-detected raster image or table
             if any(b.overlap_ratio(existing_b) > 0.5 or existing_b.overlap_ratio(b) > 0.5 for existing_b, _ in candidates):

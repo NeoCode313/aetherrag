@@ -29,8 +29,12 @@ UNITS = {
 
 def normalized(text: str) -> str:
     text = text.replace("−", "-").replace("–", "-").replace("＋", "+")
-    return "".join(c for c in unicodedata.normalize("NFD", text.lower())
+    text = "".join(c for c in unicodedata.normalize("NFD", text.lower())
                    if unicodedata.category(c) != "Mn")
+    # In an explicitly named mathematical interval, (0,1) means two endpoints.
+    # Leave decimal-comma quantities such as 0,1 mm unchanged.
+    return re.sub(r"(\b(?:intervalo|interval|rango|range)\b[^();]{0,35}[\[(]\s*[+-]?\d+(?:\.\d+)?),\s*([+-]?\d+(?:\.\d+)?\s*[\])])",
+                  r"\1; \2", text)
 
 
 def number(value: str) -> Decimal:

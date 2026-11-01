@@ -61,3 +61,29 @@ Las pruebas omiten explícitamente PostgreSQL y Docker si faltan sus servicios. 
 - [xAI: JSON Schema](https://docs.x.ai/developers/model-capabilities/text/structured-outputs).
 
 Estas referencias justifican adaptadores separados y validación local completa incluso ante subconjuntos de JSON Schema.
+
+## Corrección de consultas v4.1
+
+Las dos regresiones del manual demo recuperaban la información necesaria, pero la descartaban antes de mostrarla. El proveedor podía declarar un modo extractivo para una respuesta generativa o mencionar un alias visual no enviado. Ahora el adaptador fija el modo, solicita únicamente afirmaciones, referencias y aspectos faltantes, y el servidor calcula los campos derivados. El esquema limita los alias a la evidencia disponible y a las imágenes efectivamente adjuntas.
+
+Cada afirmación se verifica de forma independiente. Una referencia visual inválida no elimina hechos textuales sustentados. La comprobación conserva las diferencias entre cita literal, descripción extraída y observación visual real. Las citas aceptan normalización determinista de espacios y ligaduras PDF, conservando el tramo original. Un extracto inequívoco de una celda hereda exclusivamente su propia fila; los identificadores de figura se comprueban contra el encabezado de la misma fuente. Una fuente en prosa que sustenta por sí sola la afirmación no deja de ser válida al añadir una referencia de tabla.
+
+Las peticiones explícitas de figura, tabla o página incorporan contexto de layout bajo los mismos filtros de documento y publicación que la búsqueda híbrida. Se conservan las partes de la tabla pedida. Existe una regeneración acotada cuando ninguna afirmación supera los controles; no se relajan los controles para aceptar la segunda salida.
+
+La selección de PDFs evita mezclar manuales y reinicia únicamente el contexto de nuevas consultas. Los resultados históricos conservan sus referencias. El manual demo se cachea con una huella de su plantilla para no reutilizar indefinidamente un PDF generado con una versión anterior.
+
+Se incorpora recuperación semántica entrenada con multilingual-e5-small, inferencia ONNX en CPU y prefijos query/passage. Los pesos y el tokenizer se fijan por revisión y SHA-256. La división utiliza el tokenizer real, con 480 tokens por fragmento para reservar contexto. La reconstrucción de índices existentes conserva los PDFs y crea una generación nueva antes del cutover. La selección de embeddings no sustituye al generador elegido.
+
+Los errores 429 conservan un Retry-After numérico y lo respetan dentro de un presupuesto acumulado de espera de 30 segundos. No se reintenta una espera de cuota diaria. Un límite de cuenta sigue siendo un error de proveedor, no una falsa afirmación de falta de evidencia. La salida se limita a 1600 tokens para evitar reservar el contexto completo. Se retira de la interfaz el preset Groq que devolvió 404; el modelo sigue siendo editable.
+
+### Evidencia de esta corrección
+
+- Se ejecutaron las dos preguntas originales de las capturas contra Groq con qwen/qwen3.8-27b, enviando únicamente el manual sintético generado por el proyecto. Ambas devolvieron respuestas completas, citas y figura relacionada; no se atribuyó interpretación de píxeles al modelo de texto.
+- Figura 1 y Tabla 1: seis componentes, potencia nominal 145 MW y salto nominal 182 m.
+- E-409 y Figura 3: presión inferior a 115 bar, componentes del circuito, verificación de precarga de N2 de 140 bar y fugas en V-12B.
+- Los contratos comprueban referencias visuales inválidas, paráfrasis, normalización de citas, mezcla de filas, magnitudes y cuotas.
+- Las pruebas con Qdrant comprueban figuras y partes de tablas, excluyendo documentos ajenos y ejecuciones no publicadas.
+- Las pruebas optativas con el modelo E5 real comprueban paráfrasis sin coincidencia de identificadores, norma L2 y migración con persistencia tras reinicio.
+- Las pruebas de navegador incluyen alta, login posterior al reinicio, demo, consulta con citas, prueba de proveedor y Swagger bajo CSP.
+
+No se enviaron PDFs privados a proveedores externos para estas comprobaciones. La prueba real de dos preguntas no certifica todos los modelos ni todos los manuales. Los contratos HTTP de otros adaptadores tampoco prueban sus cuentas externas. La interpretación visual requiere un modelo compatible y debe evaluarse con preguntas que dependan de los píxeles.

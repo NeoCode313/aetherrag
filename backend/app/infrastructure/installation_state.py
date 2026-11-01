@@ -108,6 +108,11 @@ class InstallationState:
             state["provider"] = values
             state["revision"] += 1
 
+    def save_retrieval(self, values):
+        with self.transaction() as state:
+            state["retrieval"] = values
+            state["revision"] += 1
+
 
 def source_build() -> str:
     root = Path(__file__).resolve().parents[3]

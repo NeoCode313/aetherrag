@@ -63,7 +63,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
-        version="4.0.0",
+        version="4.1.0",
         docs_url=None,
         redoc_url=None,
         description=(
@@ -158,9 +158,11 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RateLimitError)
     async def handle_rate_limit(_req: Request, exc: RateLimitError) -> JSONResponse:
+        import math
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={"error": "rate_limit_exceeded", "detail": str(exc), "request_id": request_id_ctx.get()},
+            headers={"Retry-After": str(math.ceil(exc.retry_after))} if exc.retry_after is not None else None,
         )
 
     @app.exception_handler(ProviderUnavailableError)

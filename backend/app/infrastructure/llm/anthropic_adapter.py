@@ -33,7 +33,7 @@ class AnthropicLLMProvider:
                          "data": base64.b64encode(image.data).decode()}}]
         payload = {"model": self.model, "max_tokens": 4096, "system": system_instruction,
                    "messages": [{"role": "user", "content": content}],
-                   "output_config": {"format": {"type": "json_schema", "schema": portable_output_schema()}}}
+                   "output_config": {"format": {"type": "json_schema", "schema": portable_output_schema(prompt, images)}}}
         def invoke():
             try:
                 with httpx.Client(timeout=self.timeout) as client:
@@ -45,7 +45,8 @@ class AnthropicLLMProvider:
                     raise ProviderContractError("truncated")
                 text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
                 usage = data.get("usage", {})
-                return parse_structured_answer(text, usage.get("input_tokens"), usage.get("output_tokens"))
+                return parse_structured_answer(text, usage.get("input_tokens"), usage.get("output_tokens"),
+                                               generated_mode="grounded_answer")
             except Exception as error:
                 raise _translate_http_error(error, "Anthropic") from error
         return self.executor.call(invoke)

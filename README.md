@@ -73,13 +73,19 @@ flowchart LR
 - PostgreSQL decide publicación; outbox, leases y fencing coordinan trabajos repetidos y recuperación.
 - Cada intento escribe assets y puntos aislados; un fallo conserva la publicación anterior.
 - Chunking por secciones, párrafos y tablas, con presupuesto completo y correlación de figuras.
-- Recuperación densa y léxica TF con hashing, fusionadas por RRF. No se afirma BM25 convencional.
+- Recuperación semántica con multilingual-e5-small y léxica TF con hashing, fusionadas por RRF. No se afirma BM25 convencional.
 - Respuestas con referencias explícitas, validación estructural y comprobaciones numéricas limitadas.
 - Sesión del operador, Argon2, CSRF, DOMPurify y autorización de assets.
 
 ## Modelos y secretos
 
-El modo predeterminado local no consume APIs: usa embeddings aproximados y devuelve extractos literales. No interpreta píxeles. Los adaptadores Gemini GenerateContent, Anthropic Messages, Ollama nativo y Chat Completions compatible (OpenAI, Groq, xAI, LM Studio y vLLM) permiten usar las credenciales y modelos del evaluador.
+La instalación nueva utiliza embeddings semánticos multilingües E5 ejecutados localmente en CPU. La imagen Docker descarga una revisión fija del modelo y su tokenizer (aproximadamente 135 MB) y verifica sus SHA-256 durante la construcción. No descarga un LLM generativo ni envía documentos al servicio de distribución de pesos. El generador predeterminado sin API devuelve extractos literales y no interpreta píxeles. Los adaptadores Gemini GenerateContent, Anthropic Messages, Ollama nativo y Chat Completions compatible (OpenAI, Groq, xAI, LM Studio y vLLM) permiten usar las credenciales y modelos del evaluador.
+
+Para explicaciones redactadas, configura un generador local o externo. Un modelo de texto puede responder desde párrafos, tablas, leyendas y etiquetas, y mostrar la figura asociada. Solo un modelo con visión habilitada recibe imágenes y permite interpretar rasgos que únicamente existen en los píxeles. La interfaz distingue figuras relacionadas de imágenes efectivamente enviadas.
+
+En una instalación anterior con embeddings por hashing, usa «Activar búsqueda semántica». La reconstrucción mantiene fuentes e índice anterior, verifica los documentos y activa una generación separada; no cambia el generador ni sus credenciales. No cierres la aplicación mientras termina. Si falta alguna fuente, conserva el índice anterior y comunica el fallo. Para desarrollo nativo, ejecuta primero python backend/scripts/download_semantic_model.py o usa start-dev.ps1.
+
+Marca en el corpus los PDFs que quieras consultar. Sin selección se consulta el corpus completo. Una ingesta completada selecciona el documento recién cargado y reinicia el contexto de preguntas.
 
 El propietario configura proveedor, modelo, endpoint y clave desde Generador de respuestas. Las claves se limpian del formulario y se guardan en el volumen privado; no se devuelven por la API ni se incluyen en Git. Probar el proveedor guardado comprueba conexión y contrato con datos sintéticos, sin enviar PDFs. Puede consumir cuota de la cuenta elegida.
 

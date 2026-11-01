@@ -168,7 +168,9 @@ class SystemStatusResponse(BaseModel):
     supports_images: bool = False
     credentials_editable: bool = False
     provider_ready: bool = True
-    app_version: str = "4.0.0"
+    semantic_retrieval: bool = False
+    generation_mode: str = "extractive"
+    app_version: str = "4.1.0"
     build_id: str = ""
     index_compatible: bool = True
     active_pipeline: str = ""

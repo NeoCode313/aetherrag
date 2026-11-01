@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/workspace/backend \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    EMBEDDING_MODEL_DIR=/opt/aetherrag/models/e5-small \
     TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
 
 WORKDIR /workspace
@@ -19,6 +20,10 @@ RUN pip install --no-cache-dir --require-hashes -r /workspace/requirements.lock
 COPY backend /workspace/backend
 COPY frontend /workspace/frontend
 COPY .env.example /workspace/.env.example
+
+# Public immutable weights are prepared once at build time, never from private PDFs.
+RUN python -B backend/scripts/download_semantic_model.py --directory /opt/aetherrag/models/e5-small \
+    && chmod -R a+rX /opt/aetherrag/models
 
 RUN groupadd --gid 10001 aetherrag \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin aetherrag \

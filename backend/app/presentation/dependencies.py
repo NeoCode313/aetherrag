@@ -39,6 +39,9 @@ class AppContainer:
         self.started_at = __import__("time").time()
         state = self.identity.read()
         owner = state.get("owner") or {}
+        retrieval = state.get("retrieval") or {}
+        if retrieval.get("embedding_provider") == "onnx":
+            self.settings.embedding_provider = "onnx"
         if self.settings.environment == "test" and "auth_enabled" not in self.settings.model_fields_set:
             self.settings.auth_enabled = False
         elif self.settings.environment != "test":
@@ -113,8 +116,13 @@ class AppContainer:
         self.parser = PyMuPDFDocumentParser(
             storage=self.storage, ocr_enabled=self.settings.ocr_enabled,
             ocr_language=self.settings.ocr_language, max_pages=self.settings.pdf_max_pages,
-            max_parse_seconds=self.settings.pdf_max_parse_seconds)
-        self.chunker = LayoutAwareChunker(self.settings.chunk_max_tokens, self.settings.chunk_overlap_ratio)
+            max_parse_seconds=self.settings.pdf_max_parse_seconds,
+            allow_large_vectors=profile["pipeline_config"].get("allow_large_vectors", False))
+        pipeline_spec = profile["pipeline_config"]
+        counter = (self.resolve_embedder(self.configured_generation["profile_id"]).count_tokens
+                   if pipeline_spec.get("token_counter") == "e5" else None)
+        self.chunker = LayoutAwareChunker(pipeline_spec["chunk_max_tokens"], self.settings.chunk_overlap_ratio,
+                                        token_counter=counter)
         self.spatial_linker = SpatialLinker(max_distance=self.settings.spatial_max_distance)
         self.sparse_encoder = HashedLexicalEncoder()
         self.ranker = HybridRanker(rrf_k=self.settings.rrf_k, dense_weight=self.settings.dense_weight,
@@ -135,7 +143,7 @@ class AppContainer:
             if key in {"llm_provider", "gemini_api_key", "gemini_model", "openai_api_key", "groq_api_key",
                        "openai_model", "openai_base_url", "ollama_base_url", "ollama_model",
                        "anthropic_api_key", "anthropic_model", "openai_response_format",
-                       "llm_supports_images", "provider_allowed_hosts"}:
+                       "llm_supports_images", "provider_allowed_hosts", "provider_timeout_seconds"}:
                 setattr(self.settings, key, value)
         self._provider_revision = state["revision"]
 
@@ -144,6 +152,8 @@ class AppContainer:
         if state["revision"] != self._provider_revision:
             with self._lock:
                 self._load_private_provider()
+                if state.get("retrieval", {}).get("embedding_provider") == "onnx" and self.settings.embedding_provider != "onnx":
+                    self._configure_semantic_index()
                 self._llm_cache.clear()
                 selected = {} if state.get("provider", {}).get("llm_provider") else (self.catalog.get_setting("llm_profile") or {})
                 self.active_provider_name, self.llm_provider = configured_llm(self.settings, self.llm_executor,
@@ -161,9 +171,39 @@ class AppContainer:
         profile = self.catalog.profile_by_id(active["profile_id"])
         return {"running_pipeline": self.settings.pipeline_version,
                 "active_pipeline": profile.get("pipeline_version"),
-                "compatible": profile.get("pipeline_version") == self.settings.pipeline_version,
+                "compatible": (profile.get("pipeline_version") == self.settings.pipeline_version
+                               and active["profile_id"] == self.configured_generation["profile_id"]),
                 "target_generation": self.configured_generation["generation_id"],
                 "migration": self.catalog.get_setting("index_recovery") or {"status": "idle"}}
+
+    def _configure_semantic_index(self):
+        from app.infrastructure.llm.semantic_embedding import MultilingualE5EmbeddingProvider
+        embedder = MultilingualE5EmbeddingProvider(self.settings.embedding_model_dir)
+        candidate = self.settings.model_copy(update={"embedding_provider": "onnx"})
+        profile = embedding_profile(candidate)
+        fingerprint = digest(profile)
+        generation = self.catalog.ensure_generation(fingerprint,
+            candidate.qdrant_collection + "_" + fingerprint[:16], profile)
+        # Keep the previous pipeline immutable for jobs admitted before migration.
+        self._pipeline_cache[self.configured_generation["profile_id"]] = (self.parser, self.chunker, self.spatial_linker)
+        spec = profile["pipeline_config"]
+        parser = PyMuPDFDocumentParser(storage=self.storage, ocr_enabled=spec["ocr_enabled"],
+            ocr_language=spec["ocr_language"], max_pages=candidate.pdf_max_pages,
+            max_parse_seconds=candidate.pdf_max_parse_seconds, allow_large_vectors=True)
+        chunker = LayoutAwareChunker(spec["chunk_max_tokens"], spec["chunk_overlap_ratio"], token_counter=embedder.count_tokens)
+        self.settings.embedding_provider = "onnx"
+        self._provider_base.embedding_provider = "onnx"
+        self.configured_generation = generation
+        self._embed_cache[generation["profile_id"]] = embedder
+        self.parser, self.chunker = parser, chunker
+
+    def enable_semantic_index(self):
+        with self._lock:
+            if self.settings.embedding_provider != "onnx":
+                self._configure_semantic_index()
+                self.identity.save_retrieval({"embedding_provider": "onnx"})
+        from app.application.services.index_recovery import start_recovery
+        return start_recovery(self)
 
     def resolve_pipeline(self, profile_id):
         with self._lock:
@@ -177,8 +217,11 @@ class AppContainer:
                 self._pipeline_cache[profile_id] = (
                     PyMuPDFDocumentParser(storage=self.storage, ocr_enabled=spec["ocr_enabled"],
                         ocr_language=spec["ocr_language"], max_pages=self.settings.pdf_max_pages,
-                        max_parse_seconds=self.settings.pdf_max_parse_seconds),
-                    LayoutAwareChunker(spec["chunk_max_tokens"], spec["chunk_overlap_ratio"]),
+                        max_parse_seconds=self.settings.pdf_max_parse_seconds,
+                        allow_large_vectors=spec.get("allow_large_vectors", False)),
+                    LayoutAwareChunker(spec["chunk_max_tokens"], spec["chunk_overlap_ratio"],
+                        token_counter=(self.resolve_embedder(profile_id).count_tokens
+                                       if spec.get("token_counter") == "e5" else None)),
                     SpatialLinker(max_distance=spec["spatial_max_distance"]))
             return self._pipeline_cache[profile_id]
 
@@ -271,7 +314,7 @@ class AppContainer:
                 "llm_provider",
                 "gemini_api_key", "gemini_model", "openai_api_key", "groq_api_key", "openai_model",
                 "openai_base_url", "ollama_base_url", "ollama_model", "anthropic_api_key", "anthropic_model",
-                "openai_response_format", "llm_supports_images", "provider_allowed_hosts")}
+                "openai_response_format", "llm_supports_images", "provider_allowed_hosts", "provider_timeout_seconds")}
             # The atomic installation file is authoritative for selection AND credentials.
             # Catalog metadata is only a redacted compatibility mirror for older tooling.
             self.identity.save_provider(values)
@@ -309,7 +352,12 @@ class AppContainer:
         self._wake.set()
 
     def seed_sample_manual(self, force=False):
-        path = self.settings.data_dir / "sample_manuals" / "Manual_Turbina_HX900.pdf"
+        import hashlib
+        from pathlib import Path
+        from app.infrastructure import sample_manual
+        # A regenerated code template must not reuse a stale PDF from a previous release.
+        version = hashlib.sha256(Path(sample_manual.__file__).read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:12]
+        path = self.settings.data_dir / "sample_manuals" / version / "Manual_Turbina_HX900.pdf"
         if not path.exists():
             build_sample_manual_pdf(path)
         with path.open("rb") as stream:

@@ -32,7 +32,8 @@ class Settings(BaseSettings):
 
     # Provider selection (Dependency Injection switches)
     llm_provider: Literal["gemini", "ollama", "openai", "anthropic", "local", "auto"] = "auto"
-    embedding_provider: Literal["gemini", "ollama", "openai", "local", "auto"] = "auto"
+    embedding_provider: Literal["gemini", "ollama", "openai", "onnx", "local", "auto"] = "auto"
+    embedding_model_dir: Path | None = None
     vector_backend: Literal["qdrant", "embedded", "memory", "auto"] = "auto"
     queue_backend: Literal["background", "celery"] = "background"
     state_backend: Literal["memory", "postgres", "redis", "auto"] = "auto"
@@ -119,6 +120,8 @@ class Settings(BaseSettings):
                     raise ValueError("Hay dos catálogos locales; configura DATA_DIR con una ruta absoluta")
                 target = legacy
             self.data_dir = target.resolve()
+        if self.embedding_model_dir is None:
+            self.embedding_model_dir = self.data_dir / "models" / "e5-small"
         return self
 
 

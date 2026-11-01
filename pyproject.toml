@@ -1,6 +1,6 @@
 [project]
 name = "aetherrag-multimodal-engine"
-version = "4.0.0"
+version = "4.1.0"
 description = "Multimodal PDF RAG with versioned ingestion, hybrid retrieval and explicit evidence validation"
 readme = "README.md"
 requires-python = ">=3.11"

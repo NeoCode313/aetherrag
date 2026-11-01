@@ -14,8 +14,8 @@ Cumple significa que existe implementación y evidencia pertinente; no certifica
 | 6 | Extraer texto, tablas e imágenes de PDFs técnicos complejos | Parcial | PyMuPDF, OCR opcional y fixtures reales construidos; falta validación amplia con manuales complejos independientes |
 | 7 | Guardar coordenadas y correlacionar contexto | Cumple | bounding boxes, transformaciones geométricas y spatial linker probados |
 | 8 | Indexación semántica/layout y almacenamiento seguro en BD vectorial | Cumple | secciones, párrafos, filas y presupuesto; Qdrant con API key, sin puerto público y con filtrado de documentos/generación |
-| 9 | Recuperación híbrida semántica/palabras e imágenes asociadas | Parcial | fusión densa/léxica y asociación presentes; modo local usa hashing aproximado, sin acreditar calidad semántica con corpus independiente |
-| 10 | Generación defensiva y admitir información insuficiente | Parcial | prompt, contrato, citas y abstención implementados; siguen fallos de unidades/entidades descritos en el plan de fidelidad |
+| 9 | Recuperación híbrida semántica/palabras e imágenes asociadas | Parcial | fusión densa E5/léxica y asociación presentes; pruebas de paráfrasis con el modelo entrenado local, pendiente un benchmark amplio de manuales independientes |
+| 10 | Generación defensiva y admitir información insuficiente | Parcial | contrato simplificado, validación por afirmación, citas y controles numéricos probados; no certifican implicación semántica ni exactitud industrial |
 | 11 | Unit tests con mocks de LLM y vector store | Cumple | pruebas aisladas y bloqueo de HTTP externo accidental |
 | 12 | Retries/backoff o circuit breaker | Cumple | errores transitorios y circuit breaker probados; errores permanentes no se disfrazan como modo local |
 | 13 | Logging y trazabilidad crítica | Cumple | request ID y logs estructurados; no equivale a una plataforma completa de observabilidad |
@@ -70,3 +70,9 @@ La API docs local se verificó después de reiniciar su proceso conservando la c
 La actualización posterior de esta matriz y de la guía de acceso SSH es exclusivamente documental.
 
 La clave pública del servidor se registró en GitHub exclusivamente con permiso de lectura; la clave privada y el .env no se transfirieron al repositorio.
+
+## Revisión de regresiones v4.1
+
+Se reprodujeron con Groq las dos preguntas demo reportadas: ahora responden componentes y valores, conservan citas y presentan la figura relacionada. También se comprobó una pregunta coloquial sin identificador técnico: «Si el cojinete se recalienta, ¿cuándo se apaga la máquina automáticamente?», que recuperó y citó el disparo de 85 °C durante más de 3 segundos usando E5 local y Groq. Solo se enviaron al proveedor fragmentos del manual sintético autorizado. Estas comprobaciones no cierran por sí solas los puntos parciales 6, 9, 10 y 15 ni acreditan todos los proveedores.
+
+Los pesos locales añadidos a la entrega son del modelo de embeddings E5 (aproximadamente 135 MB), con revisión y hashes fijados. No se instala automáticamente Ollama ni un generador visual. El modo extractivo sigue siendo una alternativa de diagnóstico sin API; una evaluación de generación e interpretación visual requiere configurar un modelo compatible. Los resultados CI citados arriba pertenecen a sus revisiones concretas, no se atribuyen automáticamente a v4.1.

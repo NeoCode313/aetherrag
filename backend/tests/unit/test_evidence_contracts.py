@@ -168,7 +168,8 @@ def test_missing_asset_is_not_advertised_as_sent(tmp_path, sample_chunk_with_vis
         DefensivePromptBuilder(),llm,LocalFileStorage(tmp_path))
     result = query.execute("¿Dónde está el sensor ST-104?")
     assert result.abstained
-    assert llm.images_received == [[]]
+    assert llm.images_received and all(images == [] for images in llm.images_received)
+    assert len(llm.images_received) <= 2  # At most one grounding repair, still without the missing file.
     assert "F1" not in llm.prompts_received[0]
 
 

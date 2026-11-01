@@ -134,6 +134,7 @@ class ResilientExecutor:
     def call(self, fn: Callable[[], T]) -> T:
         self.breaker.before_call()
         last_exc: BaseException | None = None
+        rate_waited = 0.0
 
         for attempt in range(1, self.max_attempts + 1):
             try:
@@ -149,6 +150,14 @@ class ResilientExecutor:
                 if isinstance(exc, RateLimitError):
                     raw_delay = min(self.max_delay, raw_delay * 1.5)
                 jittered = raw_delay * random.uniform(0.6, 1.0)
+                if isinstance(exc, RateLimitError) and exc.retry_after is not None:
+                    requested_wait = exc.retry_after + 0.1
+                    # Honor provider windows without unbounded waits or hammering daily quotas.
+                    if rate_waited + requested_wait > 30:
+                        self.breaker.record_failure(exc)
+                        raise
+                    jittered = requested_wait
+                    rate_waited += jittered
                 logger.warning(
                     "Transient error in %s (attempt %d/%d): %s — retrying in %.2fs",
                     self.breaker.name,

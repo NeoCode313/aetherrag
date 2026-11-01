@@ -72,11 +72,15 @@ test('first owner, demo PDF, cited answer, provider probe, logout and persisted 
   await page.locator('#btn-register').click();
   await page.locator('#login-modal').waitFor({ state: 'hidden' });
   assert.match(await page.locator('#btn-session').textContent(), /reviewer/);
-  assert.match(await page.locator('#label-provider').textContent(), /4\.0\.0/);
+  assert.match(await page.locator('#label-provider').textContent(), /4\.1\.0/);
   await page.locator('#btn-seed-demo').click();
   await page.waitForFunction(() => document.querySelectorAll('.doc-card').length === 1);
+  assert.equal(await page.locator('.doc-card input[type="checkbox"]').isChecked(), true);
+  const documents = await (await page.request.get(url + '/api/v1/documents')).json();
   await page.locator('#chat-input').fill('¿A qué temperatura dispara el sensor ST-104?');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/api/v1/chat/query') && request.method() === 'POST');
   await page.locator('#btn-send').click();
+  assert.deepEqual((await submitted).postDataJSON().document_ids, [documents[0].document_id]);
   await page.waitForFunction(() => document.querySelectorAll('.citation-card').length > 0);
   await page.locator('#btn-open-settings').click();
   await page.locator('#btn-test-provider').click();
