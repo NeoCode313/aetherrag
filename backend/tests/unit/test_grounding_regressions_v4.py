@@ -71,6 +71,7 @@ def test_caption_identifier_is_validated_from_its_own_source():
     refs = [EvidenceReference("E1", quote="Bomba HP-300 y servomotor SM-01.")]
     assert builder._check_claim(GeneratedClaim("La Figura 3 contiene Bomba HP-300 y servomotor SM-01.", refs), context)[0]
     assert not builder._check_claim(GeneratedClaim("La Figura 4 contiene Bomba HP-300 y servomotor SM-01.", refs), context)[0]
+    assert not builder._check_claim(GeneratedClaim("La Figura 3 contiene 3 válvulas.", refs), context)[0]
 
 
 def test_additional_table_reference_does_not_invalidate_a_complete_prose_source():

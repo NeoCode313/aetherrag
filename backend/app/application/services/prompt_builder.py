@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from app.application.services.evidence_consistency import consistent
 from app.application.services.hybrid_ranker import extract_technical_codes, normalize_technical_text
-from app.application.services.spatial_linker import CAPTION_RE, TABLE_CAPTION_RE
+from app.application.services.spatial_linker import REFERENCE_RE, FIGURE_ID, ID_END, figure_number_from_caption
 from app.domain.entities import (
     Citation, ConversationTurn, EvidenceReference, GeneratedAnswer, GeneratedClaim,
     RAGMetrics, ScoredChunk, VisualEvidence,
@@ -39,6 +39,7 @@ Si no hay ningún dato pertinente, claims=[] y explica lo que falta en missing_f
 Una etiqueta con un valor no basta para inventar una definición física del componente.
 No afirmes haber observado píxeles cuando solo citas una descripción textual.
 """
+TABLE_REFERENCE_RE = re.compile(rf"\b(?:tabla|table)\s*({FIGURE_ID}){ID_END}", re.I)
 
 
 def _json_data(value: object) -> str:
@@ -72,6 +73,9 @@ class DefensivePromptBuilder:
         issues = []
         for number, claim in enumerate(raw.claims, 1):
             quotes = []
+            checked_statement = self._statement_for_consistency(claim, bundle)
+            if checked_statement is None:
+                issues.append(f"Afirmación {number}: menciona una figura o tabla ausente de sus fuentes referenciadas.")
             for ref in claim.evidence_refs:
                 source = bundle.alias_to_chunk.get(ref.evidence_id)
                 if source:
@@ -88,7 +92,7 @@ class DefensivePromptBuilder:
                     if not re.search(r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])", normalize_technical_text(corpus).lower()):
                         allowed = ", ".join(dict.fromkeys(extract_technical_codes(corpus)))
                         issues.append(f"Afirmación {number}: el identificador {code} no aparece en sus citas. Los identificadores presentes son: {allowed}.")
-                if not consistent(claim.statement, quotes):
+                if not consistent(checked_statement or claim.statement, quotes):
                     issues.append(f"Afirmación {number}: cambia un número, unidad o comparador respecto de sus citas; conserva el valor y su condición.")
         return issues[:12]
 
@@ -184,10 +188,22 @@ class DefensivePromptBuilder:
                     if line.strip().startswith("|") and "---" not in line and quote in line]
             if len(rows) == 1:
                 quote = rows[0]
-        # Caption identifiers are source metadata, not physical magnitudes. A short
-        # component excerpt can still refer to the caption of that same source.
-        caption = CAPTION_RE.match(chunk.text) or TABLE_CAPTION_RE.match(chunk.text)
-        return caption.group(0) + "\n" + quote if caption else quote
+        return quote
+
+    @staticmethod
+    def _statement_for_consistency(claim: GeneratedClaim, bundle: PromptBundle) -> str | None:
+        sources = [bundle.alias_to_chunk[ref.evidence_id].chunk.text for ref in claim.evidence_refs
+                   if ref.evidence_id in bundle.alias_to_chunk]
+        statement = claim.statement
+        for pattern in (REFERENCE_RE, TABLE_REFERENCE_RE):
+            canonical = lambda value: figure_number_from_caption("Figura " + value)
+            allowed = {canonical(match.group(1)) for source in sources for match in pattern.finditer(source)}
+            if any(canonical(match.group(1)) not in allowed for match in pattern.finditer(statement)):
+                return None
+            # Figure/table labels are validated above, separately from quantities.
+            # Their numbers must not justify invented counts or physical values.
+            statement = pattern.sub("", statement)
+        return statement
 
     def _check_claim(self, claim: GeneratedClaim, bundle: PromptBundle) -> tuple[bool, list[str], list[str]]:
         if not claim.statement.strip() or not claim.evidence_refs:
@@ -216,7 +232,8 @@ class DefensivePromptBuilder:
                 return False, [], []
         if text_refs:
             corpus = " ".join(quotes)
-            if not consistent(claim.statement, quotes):
+            checked_statement = self._statement_for_consistency(claim, bundle)
+            if checked_statement is None or not consistent(checked_statement, quotes):
                 return False, [], []
             codes = extract_technical_codes(claim.statement)
             if any(not re.search(r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])",
@@ -227,10 +244,10 @@ class DefensivePromptBuilder:
                           if line.strip().startswith("|") and "---" not in line]
             prose_supports = bool(prose_quotes) and all(re.search(
                 r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])", normalize_technical_text(" ".join(prose_quotes)).lower())
-                for code in codes) and consistent(claim.statement, prose_quotes)
+                for code in codes) and consistent(checked_statement, prose_quotes)
             if codes and table_rows and not prose_supports and claim.statement.strip() not in quotes and not any(
                     all(re.search(r"(?<![\w/-])" + re.escape(code) + r"(?![\w/-])", normalize_technical_text(row).lower())
-                        for code in codes) and consistent(claim.statement, [row])
+                        for code in codes) and consistent(checked_statement, [row])
                     for row in table_rows):
                 return False, [], []
             # Detect straightforward near-verbatim polarity reversal. This is not a general NLI model.

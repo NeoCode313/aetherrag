@@ -80,8 +80,8 @@
     },
     {
       "path": "backend/app/application/services/prompt_builder.py",
-      "sha256": "22e04b50a5955fc463fd414b0aa6a2296e728226bddcad75bca449a8e2105a78",
-      "bytes": 23263
+      "sha256": "ac04e590a72f81c8b5deb16b3b6cefa1a0b70e2aa39d817bb99858a3969ff544",
+      "bytes": 24398
     },
     {
       "path": "backend/app/application/services/spatial_linker.py",
@@ -490,8 +490,8 @@
     },
     {
       "path": "backend/tests/unit/test_grounding_regressions_v4.py",
-      "sha256": "bbd70ef29445663b4cd2d799e5b4b39de6ba25f95f48dfe5352622714dc7e352",
-      "bytes": 9600
+      "sha256": "e8325ecd2c260123197899938cdacea195139c9d2084760005fe6a12e27620b7",
+      "bytes": 9707
     },
     {
       "path": "backend/tests/unit/test_layout_chunker_and_hybrid_ranker.py",
