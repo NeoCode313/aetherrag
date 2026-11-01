@@ -20,10 +20,15 @@ Mediciones de la revisión `17603a4`, con el mismo host, 2 GiB de RAM asignada, 
 |---|---:|---:|---:|
 | 1 CPU | 106,16 s | 47,68 s | 154,16 s |
 | 3 CPU | 30,41 s | 19,80 s | 50,46 s |
+| Código final `2065ac1`, 3 CPU, vistas diferidas | 30,30 s | 19,98 s | 50,66 s |
 
 Ambas corridas produjeron 24 páginas, 144 chunks y 24 figuras, con la misma huella de integridad. La comparación no atribuye esa diferencia a una modificación de código: aquí solo cambió la cuota de CPU. La primera preparación del modelo también puede verse afectada por cachés del sistema.
 
-Los resultados de la revisión optimizada se incorporan después de construirla y compararla bajo las mismas condiciones. La ejecución en una máquina distinta debe volver a medirse.
+La última fila corresponde al código Python final; cambios posteriores exclusivamente de documentación no alteran ese pipeline. Su huella de integridad también coincide con la base y conserva 24 páginas, 144 chunks y 24 figuras. El pico del contenedor fue aproximadamente 1,01 GiB, con cero swap en esa corrida.
+
+La mejora observada de la configuración inicial (154,16 s) a la combinación final (50,66 s) es cercana a 3 veces, principalmente por la cuota de CPU. Comparando únicamente código bajo 3 CPU (50,46 frente a 50,66 s), este ensayo no demuestra una ganancia adicional. No se atribuye la aceleración a diferir previews ni a una caché de celdas. La primera apertura de una vista se paga aparte y se comprueba funcionalmente.
+
+En el parser final, la detección/extracción de tablas consumió aproximadamente 26,09 s y las figuras 3,96 s. Esto sitúa el siguiente candidato de investigación en la detección de tablas/layout, conservando su precisión; no justifica desactivar indiscriminadamente análisis o imágenes. Son mediciones individuales del mismo corpus, no percentiles poblacionales ni una garantía para otros PDFs. La ejecución en otra máquina debe volver a medirse.
 
 ## Reproducción aislada (Linux / WSL)
 

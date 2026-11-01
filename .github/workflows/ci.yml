@@ -78,6 +78,10 @@ jobs:
       - name: Verify the non-root runtime can use a restrictive source checkout
         run: chmod -R go-rwx backend frontend .env.example
       - run: docker compose up --build -d
+      - name: Verify the host gateway for local model endpoints
+        run: |
+          docker compose exec -T api python -c "import socket; print(socket.gethostbyname('host.docker.internal'))"
+          docker compose exec -T worker python -c "import socket; print(socket.gethostbyname('host.docker.internal'))"
       - name: Run real broker and vector-store integration
         env:
           STACK_TEST_PASSWORD: OnlyForThisEphemeralCIStack-48291

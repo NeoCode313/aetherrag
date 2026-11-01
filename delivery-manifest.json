@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "58271986eaf9c05e7584f177a74677607e7738897eecc1a0a5792485db7184f2",
-      "bytes": 3950
+      "sha256": "e42ec64ea97e71cc13e0722c28518060c23065dd1029c27a6f360adaa846e0f8",
+      "bytes": 4264
     },
     {
       "path": ".gitignore",
@@ -560,8 +560,8 @@
     },
     {
       "path": "docker-compose.yml",
-      "sha256": "188732189c53c35d17db09b6b05315d2fbb02db680dcb132268b3f6190513356",
-      "bytes": 5890
+      "sha256": "c459f553d3c1df592b17213f755e713c1d28bedd5591e1ddd0a838787419085c",
+      "bytes": 5943
     },
     {
       "path": "docs/DEPLOYMENT.md",
@@ -575,8 +575,8 @@
     },
     {
       "path": "docs/PERFORMANCE.md",
-      "sha256": "40079c99995aa27419ea521cf789b14da40d9143125473ddf543b9876ba2ebe1",
-      "bytes": 5288
+      "sha256": "17c4f32ec85a77203025ab50ab073e71f2029d165f56d6f8e7d9656c9262af1a",
+      "bytes": 6388
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
