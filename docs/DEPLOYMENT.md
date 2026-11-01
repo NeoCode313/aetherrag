@@ -1,6 +1,6 @@
 # Publicación y actualizaciones privadas
 
-El repositorio remoto contiene una copia saneada del código. Los secretos, datos y configuración de cada instalación se mantienen fuera de Git.
+La rama predeterminada de entrega es v4. El repositorio remoto contiene una copia saneada del código. Los secretos, datos y configuración de cada instalación se mantienen fuera de Git.
 
 ## Publicar desde la PC de desarrollo
 
@@ -10,7 +10,7 @@ En el entorno original de desarrollo, el propietario dispone de publish-private.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish-private.ps1 -Message "fix: describir el cambio realizado"
 ~~~
 
-El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir main. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
+El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir v4. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
 
 Si falla un control, revisar los cambios que quedaron preparados en submission/repository. No publicar manualmente esa copia sin resolver el control. Los tests locales omiten PostgreSQL/stack cuando no están configurados; revisar también la CI de GitHub.
 
@@ -62,10 +62,10 @@ Para la instalación existente de v3:
 
 ~~~bash
 cd ~/apps/aetherrag-source
-bash ops/update-server.sh ~/apps/aetherrag-v3-f305946 aetherrag-v3-test origin/main
+bash ops/update-server.sh ~/apps/aetherrag-v3-f305946 aetherrag-v3-test origin/v4
 ~~~
 
-Para fijar una revisión aprobada, sustituir origin/main por su SHA. El script:
+Para fijar una revisión aprobada, sustituir origin/v4 por su SHA. El script:
 
 1. Requiere un clon limpio y una instalación existente; bloquea actualizaciones concurrentes.
 2. Descarga main y comprueba que la revisión pertenece a esa rama.

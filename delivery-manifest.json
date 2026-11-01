@@ -535,13 +535,13 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "42f42f6718bc0e006b88eab193016acfc5f12ed7aef1f05643196d822b4aab8a",
-      "bytes": 5786
+      "sha256": "f9403f7463b052b786dcd8391d5b8fb058792d86dcc3446b8fb1dcc78c07f134",
+      "bytes": 5821
     },
     {
       "path": "docs/IMPLEMENTACION_V4.md",
-      "sha256": "fd3c19e0d302c82893cca7ea6935022daa12e99843abd19e22d226b9bf21ec62",
-      "bytes": 10570
+      "sha256": "4ef0790d5d560d3a87538ce3b7e1761db35df65a07f3c248d954c87409aa88d3",
+      "bytes": 11504
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",

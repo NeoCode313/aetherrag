@@ -87,3 +87,11 @@ Los errores 429 conservan un Retry-After numérico y lo respetan dentro de un pr
 - Las pruebas de navegador incluyen alta, login posterior al reinicio, demo, consulta con citas, prueba de proveedor y Swagger bajo CSP.
 
 No se enviaron PDFs privados a proveedores externos para estas comprobaciones. La prueba real de dos preguntas no certifica todos los modelos ni todos los manuales. Los contratos HTTP de otros adaptadores tampoco prueban sus cuentas externas. La interpretación visual requiere un modelo compatible y debe evaluarse con preguntas que dependan de los píxeles.
+
+### Validación de la revisión final
+
+La revisión de código 2148922 completó ambos trabajos de [GitHub Actions, ejecución 41263604523](https://github.com/NeoCode313/aetherrag/actions/runs/41263604523): contratos con PostgreSQL, embeddings E5 reales, evaluación sintética, smoke de 100 ingestas, 11 pruebas de navegador y 52 pruebas del stack Docker real. Los subconjuntos se solapan y no deben sumarse como pruebas únicas. La evaluación sintética de texto no acredita interpretación de píxeles.
+
+E5 se eligió para admitir paráfrasis multilingües con pesos reproducibles y sin enviar el corpus a una API de embeddings. La generación se configura de forma independiente.
+
+La rama predeterminada del repositorio privado se fijó en v4 para que un clon nuevo reciba la entrega actual. El servidor existente se actualiza indicando origin/v4 al actualizador; publicar código no reinicia automáticamente esa instalación.
