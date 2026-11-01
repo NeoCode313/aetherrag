@@ -1,6 +1,6 @@
 # Publicación y actualizaciones privadas
 
-La rama predeterminada de entrega es v4. El repositorio remoto contiene una copia saneada del código. Los secretos, datos y configuración de cada instalación se mantienen fuera de Git.
+La migración React se publica en v4-react; v4 conserva la entrega anterior. El repositorio remoto contiene una copia saneada del código. Los secretos, datos y configuración de cada instalación se mantienen fuera de Git.
 
 ## Publicar desde la PC de desarrollo
 
@@ -10,7 +10,7 @@ En el entorno original de desarrollo, el propietario dispone de publish-private.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish-private.ps1 -Message "fix: describir el cambio realizado"
 ~~~
 
-El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir v4. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
+El asistente selecciona archivos de una lista permitida, sustituye el README privado por el de entrega, analiza secretos con Gitleaks, ejecuta pruebas locales y crea un commit en la copia de entrega antes de subir v4-react. Exige que el remoto sea privado y que la copia esté limpia antes de comenzar. No hace force push.
 
 Si falla un control, revisar los cambios que quedaron preparados en submission/repository. No publicar manualmente esa copia sin resolver el control. Los tests locales omiten PostgreSQL/stack cuando no están configurados; revisar también la CI de GitHub.
 
@@ -62,13 +62,15 @@ Para la instalación existente de v3:
 
 ~~~bash
 cd ~/apps/aetherrag-source
-bash ops/update-server.sh ~/apps/aetherrag-v3-f305946 aetherrag-v3-test origin/v4
+git fetch origin v4-react
+git switch --detach origin/v4-react
+bash ops/update-server.sh ~/apps/aetherrag-v3-f305946 aetherrag-v3-test origin/v4-react
 ~~~
 
-Para fijar una revisión aprobada, sustituir origin/v4 por su SHA. El script:
+El primer cambio desde v4 carga también el actualizador con soporte para v4-react. Esta migración de interfaz no cambia el esquema del catálogo. Los contenedores anteriores permanecen activos mientras se prepara la nueva imagen. Después, utilizar el actualizador indicando origin/v4-react explícitamente. El script:
 
 1. Requiere un clon limpio y una instalación existente; bloquea actualizaciones concurrentes.
-2. Descarga main y comprueba que la revisión pertenece a esa rama.
+2. Descarga la rama seleccionada y comprueba que la revisión pertenece a ella.
 3. Detiene el proceso si cambian los archivos de esquema/migraciones: eso requiere un plan de migración y respaldo separado.
 4. Construye una imagen etiquetada por commit.
 5. Mantiene el nombre del proyecto Docker y los volúmenes existentes.

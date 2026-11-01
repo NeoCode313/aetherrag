@@ -5,8 +5,8 @@
   "files": [
     {
       "path": ".dockerignore",
-      "sha256": "7ac74d6748eb04cdfc5f0dfb6a1356fdcf9440a5502f61ad388d503cc482277f",
-      "bytes": 287
+      "sha256": "adc30a606cec8bddc2eaae4a34a4b2e6935eaa45c611bf3a61588d8333bff2f5",
+      "bytes": 311
     },
     {
       "path": ".env.example",
@@ -20,8 +20,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "9be4313443559316bf977c8de344826bf30c33da545feeb69e81f0fb9600361e",
-      "bytes": 3204
+      "sha256": "3c051950c57c8401e50086396c9f4fa2a122a9399a1bd58028f7e11aca880b41",
+      "bytes": 3666
     },
     {
       "path": ".gitignore",
@@ -35,13 +35,13 @@
     },
     {
       "path": "Dockerfile",
-      "sha256": "fba3ba42482641c2f0b9d76fe4196154064274e8cc3a857fdf686dddbc9f7fad",
-      "bytes": 1349
+      "sha256": "0af1eee948f3ae494186d2c3f86258462794481ebf4fce0b7f476693e6abdc81",
+      "bytes": 1793
     },
     {
       "path": "README.md",
-      "sha256": "c691d2aad226db6fa30bd71994586defff2d1f9a5097c6da4ff8bc9241264985",
-      "bytes": 11414
+      "sha256": "8eeda2dd0357618662aad63f8219abffe05d0d4e88441ec30635e9c822a1c864",
+      "bytes": 12597
     },
     {
       "path": "backend/app/__init__.py",
@@ -430,8 +430,8 @@
     },
     {
       "path": "backend/tests/integration/test_real_stack.py",
-      "sha256": "21bcaca83216d940643849a7e3671fed6eafa99fc78010c610209ad655285b0a",
-      "bytes": 3092
+      "sha256": "6030591576c46e5eff5961ca205d498bc7af1add509685e9215bdafb278906ac",
+      "bytes": 5126
     },
     {
       "path": "backend/tests/integration/test_semantic_retrieval.py",
@@ -535,8 +535,8 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "f9403f7463b052b786dcd8391d5b8fb058792d86dcc3446b8fb1dcc78c07f134",
-      "bytes": 5821
+      "sha256": "1614b4c7961d8ffeb6896556b8f1592d3e7e5716926af339d897e7f6ee994b82",
+      "bytes": 6186
     },
     {
       "path": "docs/IMPLEMENTACION_V4.md",
@@ -547,6 +547,121 @@
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
       "sha256": "35936ca0ea34cc9ab73ba8d181439b1472beb2221102bb438953911852255a1e",
       "bytes": 9063
+    },
+    {
+      "path": "frontend-react/README.md",
+      "sha256": "a87fe3dd1edade5581521c43a95d5a65a44680bfb22ed6f23ee44cef0aa4acb2",
+      "bytes": 3080
+    },
+    {
+      "path": "frontend-react/index.html",
+      "sha256": "28509cdf1211845ba951d1d2028e1087b2dc59d8f3567b53c4a294ba9194155f",
+      "bytes": 485
+    },
+    {
+      "path": "frontend-react/package-lock.json",
+      "sha256": "955f287692d97d4367e39683c80acdde1e0f4fd0f233807e6812ab4d508b5c3b",
+      "bytes": 63463
+    },
+    {
+      "path": "frontend-react/package.json",
+      "sha256": "c147eb8e83aff0b3b892514499b94f7a35df9ea8974c1597db70c2af225bbc57",
+      "bytes": 558
+    },
+    {
+      "path": "frontend-react/src/App.tsx",
+      "sha256": "942989d9cd0919c4fc241b7384ef71ffc7f93c9edd1f1e24138bdc9e04d51794",
+      "bytes": 1484
+    },
+    {
+      "path": "frontend-react/src/components/AuthModal.tsx",
+      "sha256": "6296f96c35d4bdc3f5f39c94a5267297f53a81307a9ec8ca325cafc8b0c61ef5",
+      "bytes": 4336
+    },
+    {
+      "path": "frontend-react/src/components/ChatPanel.tsx",
+      "sha256": "5eabe200c7692eaf1995c2996ce712fb8e7c393a1d67046b6eeaabc993173cc6",
+      "bytes": 5589
+    },
+    {
+      "path": "frontend-react/src/components/IngestionSidebar.tsx",
+      "sha256": "3cb90c599c25d7a8219c5b304acde62f7e0687edd230aa03cfd9eb47266dbea8",
+      "bytes": 3773
+    },
+    {
+      "path": "frontend-react/src/components/LightboxModal.tsx",
+      "sha256": "7c23a6620b66778b4b8d6e41c68e29db10dd68cf806aa397c044db65cca82fef",
+      "bytes": 1288
+    },
+    {
+      "path": "frontend-react/src/components/MessageCard.tsx",
+      "sha256": "cdbd5b91b84f416e466254537b9868dacd576e844d26974e7c1fcbff36f827eb",
+      "bytes": 6558
+    },
+    {
+      "path": "frontend-react/src/components/ProviderModal.tsx",
+      "sha256": "4d5beddceb48294fdb3100755aa386edd4434a431bdac604572451920e0b5ede",
+      "bytes": 7980
+    },
+    {
+      "path": "frontend-react/src/components/Topbar.tsx",
+      "sha256": "d0132997751483404f48da88e30e07028606f717345fc4a05102d43254643400",
+      "bytes": 3287
+    },
+    {
+      "path": "frontend-react/src/components/VisualInspector.tsx",
+      "sha256": "9a05cfbff430389948a19bb038902ddd8dd4beb76fafebbc1dd80d833ca75651",
+      "bytes": 6708
+    },
+    {
+      "path": "frontend-react/src/hooks/useActivityPulse.ts",
+      "sha256": "04d7ec0f58cd1d52da5d87711c077f41b00f59e110d3288218f40b1ffb9202d3",
+      "bytes": 2244
+    },
+    {
+      "path": "frontend-react/src/hooks/useChatScroll.ts",
+      "sha256": "19eddfd7bdb07e33132dac30dcc9bc2b0e343a4fa8250113983974b91fd31305",
+      "bytes": 1636
+    },
+    {
+      "path": "frontend-react/src/hooks/useWorkbench.ts",
+      "sha256": "fb6460ea6f4cdea87e743b4066769dea60d065589cb6fd12f141b4baf54ca958",
+      "bytes": 15240
+    },
+    {
+      "path": "frontend-react/src/main.tsx",
+      "sha256": "523c7f1e8eed7026753fcc3af4e3f25c226d67ea2a1780dd941450cac0574420",
+      "bytes": 840
+    },
+    {
+      "path": "frontend-react/src/services/apiClient.ts",
+      "sha256": "3e750ec3a6a8338377cddc638a68d467e9f0930bd0277c63a1a3bf0d1e5f3893",
+      "bytes": 3206
+    },
+    {
+      "path": "frontend-react/src/services/sanitizer.ts",
+      "sha256": "47cd4c6f41640eb47e5013b1c3f1b84de6c49545bd07f001eb7cdf6c0276ef44",
+      "bytes": 3183
+    },
+    {
+      "path": "frontend-react/src/styles/workbench.css",
+      "sha256": "c2722a811628fc90c0ab98af636626c3ae55dcfbdf8b8d3a2bc1abba5e7b61e5",
+      "bytes": 22835
+    },
+    {
+      "path": "frontend-react/src/types/api.ts",
+      "sha256": "531f498dd95f657d24578420ac5fecba154cc5314830ce5147bc1530539dcd31",
+      "bytes": 2845
+    },
+    {
+      "path": "frontend-react/tsconfig.json",
+      "sha256": "69de26c760fafb0be7e45aba0dab8dcd660a4a72e6f16c3c1e163e65f6a0df18",
+      "bytes": 385
+    },
+    {
+      "path": "frontend-react/vite.config.ts",
+      "sha256": "b994e1dcb4f81e385e8a468ce1ddc9cef54dfcc474da7154586a8ff50e4f064f",
+      "bytes": 1771
     },
     {
       "path": "frontend/api-docs-init.js",
@@ -560,13 +675,13 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "89801f8829f976c9b0bdf3c8befaf8f9626703650114c0a15db76b710d1389ff",
-      "bytes": 56632
+      "sha256": "1ca96d6bf46d7bfc4d334aa5ef95f1d6a5a559c89796121028d1db46b8fdf4bb",
+      "bytes": 191589
     },
     {
       "path": "frontend/index.html",
-      "sha256": "ae45bd425f5493db4e42ba5fba2ab1e78847df376e6b088c9e47d5c0db47b780",
-      "bytes": 27949
+      "sha256": "32d2ca2bbd50ac42af2fed7b34f99c939769731bdeb8c9798894af6adaeceb32",
+      "bytes": 556
     },
     {
       "path": "frontend/package.json",
@@ -575,13 +690,18 @@
     },
     {
       "path": "frontend/styles.css",
-      "sha256": "8de2c80de3735112882557e0992222b3ff531f8cc352e76e8c8c6c41816d6a2d",
-      "bytes": 86365
+      "sha256": "e126757f075d1e7e12d2beb14013876b71c8f11bb4bd112ff5fa87519a132a28",
+      "bytes": 21326
     },
     {
       "path": "frontend/tests/installation.spec.cjs",
       "sha256": "04d002deaa924b7067b5fb913fe2994ea0071a349ced891deefa687068ee2391",
       "bytes": 5876
+    },
+    {
+      "path": "frontend/tests/react.spec.cjs",
+      "sha256": "124f0d9a01685a710be3705d2755a59f0ac62556c01d0afa0900b7c10c98663c",
+      "bytes": 12666
     },
     {
       "path": "frontend/tests/workbench.spec.cjs",
@@ -635,8 +755,8 @@
     },
     {
       "path": "ops/update-server.sh",
-      "sha256": "b51a93d7531422771435cf49d6834956eb75f0c6664d102d19e2ac8b0d2cbb06",
-      "bytes": 3515
+      "sha256": "e6684641306bc986bd92fd21ce0b376083ad55f73340a988d6c6accb8ee78fcd",
+      "bytes": 3607
     },
     {
       "path": "pyproject.toml",

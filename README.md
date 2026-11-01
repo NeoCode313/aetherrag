@@ -1,6 +1,6 @@
 # AetherRAG — entrega técnica reproducible
 
-Aplicación para PDFs técnicos con ingesta asíncrona, recuperación híbrida, citas y asociación espacial de figuras. El frontend se sirve desde FastAPI. Esta entrega se ejecuta en el equipo del evaluador: no requiere acceso a servidores del autor ni credenciales compartidas.
+Aplicación para PDFs técnicos con ingesta asíncrona, recuperación híbrida, citas y asociación espacial de figuras. El cliente React 18 + TypeScript se compila con Vite y se sirve desde FastAPI. Esta entrega se ejecuta en el equipo del evaluador: no requiere acceso a servidores del autor ni credenciales compartidas.
 
 ## Requisitos
 
@@ -56,7 +56,7 @@ Para ejecutar toda la suite en el host, instalar requirements.lock con --require
 
 ~~~mermaid
 flowchart LR
-  UI[Chat y visor] --> TLS[Caddy HTTPS]
+  UI[React 18: chat y visor] --> TLS[Caddy HTTPS]
   TLS --> API[FastAPI]
   API --> SQL[(PostgreSQL: jobs y outbox)]
   API --> Query[Recuperación híbrida y evidencia]
@@ -76,6 +76,14 @@ flowchart LR
 - Recuperación semántica con multilingual-e5-small y léxica TF con hashing, fusionadas por RRF. No se afirma BM25 convencional.
 - Respuestas con referencias explícitas, validación estructural y comprobaciones numéricas limitadas.
 - Sesión del operador, Argon2, CSRF, DOMPurify y autorización de assets.
+
+## Cliente React y compilación reproducible
+
+El código fuente está en frontend-react/. Dockerfile usa una etapa Node con digest fijo y npm ci para compilar TypeScript y Vite. La imagen final sirve los archivos estáticos del cliente y la API desde el mismo origen; Node no se ejecuta en producción. Un solo docker compose up --build -d arranca API, cliente y servicios auxiliares después de preparar el .env propio de la instalación.
+
+Los artefactos en frontend/ también se versionan para ejecutar el backend nativo. La CI los reconstruye y verifica que coincidan con el código fuente. Las rutas deterministas incorporan una huella de contenido para evitar bundles antiguos en la caché del navegador. Para editar la UI con Node 22.12 o posterior: npm ci --prefix frontend-react y npm run build --prefix frontend-react. Las instrucciones completas están en frontend-react/README.md.
+
+La migración React está aislada en v4-react; la rama v4 conserva la implementación anterior. Los tests originales de navegador se mantienen y se añaden contratos de concurrencia, caducidad de sesión, credenciales y desplazamiento.
 
 ## Modelos y secretos
 

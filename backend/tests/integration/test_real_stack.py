@@ -65,3 +65,55 @@ def test_real_durable_ingestion_and_authenticated_query(tmp_path):
         finally:
             if cleanup:
                 assert client.delete(f"/api/v1/documents/{document_id}").status_code == 204
+
+
+def test_real_stack_serves_compiled_react_and_same_origin_assets():
+    """The container must deliver the built client, not just a healthy API."""
+    import hashlib
+    from html.parser import HTMLParser
+    from urllib.parse import parse_qs, urlsplit
+
+    class Assets(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.urls = []
+            self.inline = False
+            self.in_script = False
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "script":
+                self.in_script = True
+                if attrs.get("src"):
+                    self.urls.append(attrs["src"])
+            if tag == "link" and attrs.get("rel") == "stylesheet":
+                self.urls.append(attrs["href"])
+
+        def handle_endtag(self, tag):
+            if tag == "script":
+                self.in_script = False
+
+        def handle_data(self, text):
+            if self.in_script and text.strip():
+                self.inline = True
+
+    with httpx.Client(base_url=URL, verify=os.getenv("STACK_TEST_CA") or False, timeout=45) as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert 'id="root"' in page.text
+        assert "script-src 'self'" in page.headers["content-security-policy"]
+        assets = Assets()
+        assets.feed(page.text)
+        assert not assets.inline
+        assert any(urlsplit(url).path == "/static/app.js" for url in assets.urls)
+        assert any(urlsplit(url).path == "/static/styles.css" for url in assets.urls)
+        for url in assets.urls:
+            assert url.startswith("/static/")
+            asset = client.get(url)
+            assert asset.status_code == 200, url
+            version = parse_qs(urlsplit(url).query).get("v")
+            if version:
+                assert hashlib.sha256(asset.content).hexdigest()[:12] == version[0]
+        docs = client.get("/docs")
+        assert docs.status_code == 200
+        assert "/static/api-docs-init.js" in docs.text
