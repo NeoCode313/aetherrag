@@ -24,6 +24,25 @@ from app.domain.entities import (
 from app.domain.ports import EmbeddingProvider, LLMProvider, VectorStore
 
 
+def pytest_configure(config):
+    """Keep a deployment's .env and inherited production settings out of tests.
+
+    Preserve explicit opt-ins (CATALOG_TEST_DATABASE_URL, STACK_TEST_* and
+    SEMANTIC_TEST_MODEL_DIR). Individual tests still set their own settings/env.
+    This runs before collection imports app.main and the Celery composition.
+    """
+    import os
+    from app.infrastructure.config import Settings, get_settings
+
+    setting_names = {field.casefold() for field in Settings.model_fields}
+    for name in list(os.environ):
+        if name.casefold() in setting_names:
+            os.environ.pop(name)
+    Settings.model_config["env_file"] = None
+    os.environ["AETHERRAG_ENV_FILE"] = os.devnull
+    get_settings.cache_clear()
+
+
 class MockEmbeddingProvider(EmbeddingProvider):
     """Deterministic unit-test embedding mock (zero network calls)."""
 

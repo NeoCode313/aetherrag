@@ -55,7 +55,7 @@ La medición `total_ms` cubre el trabajo hasta preparar/publicar su manifiesto; 
 
 1. Las imágenes de página completa se difieren; las figuras necesarias para la recuperación siguen extrayéndose en la ingesta.
 2. La vista se genera en un proceso separado con límite de píxeles/deadline, caché y publicación atómica. Las pruebas comparan los PNG con el render anterior, incluidas rotaciones/CropBox y el rechazo de documentos no autorizados.
-3. La extracción de celdas reutiliza texto de página. Palabras que atraviesan el borde de una celda usan el recorte previo para conservar el comportamiento. Se comprueban decimales, límites y rotaciones.
+3. Se conserva la extracción nativa de celdas ya probada. Un prototipo de caché de texto no mostró una ganancia de tiempo en este corpus y no forma parte de la revisión final; las pruebas de decimales y geometría permanecen.
 4. Los avances de embeddings se actualizan por lotes de ocho, conservando el tamaño interno del adaptador E5 y el orden de vectores.
 5. El perfil de rendimiento reserva recursos con límites explícitos y un worker. La ampliación del presupuesto de extracción se realiza explícitamente, manteniendo límites de páginas, texto y píxeles.
 

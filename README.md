@@ -187,6 +187,8 @@ La entrega trabaja con efectos externos **al menos una vez**. Leases, fencing y 
 
 **Motivo:** las preguntas técnicas dependen de tablas, leyendas y diagramas; el texto plano pierde relaciones espaciales. La lectura de celdas mantiene el orden nativo y evita reconstruir decimales por conjetura. **Consecuencia:** algunos PDFs requieren OCR o tienen estructuras ambiguas; ninguna estrategia de extracción garantiza todos los formatos.
 
+La versión fijada de PyMuPDF incorpora análisis local de layout en la detección de tablas. Ese procesamiento forma parte de la dependencia documental y consume CPU adicional; se conserva para mantener su comportamiento de detección. Es independiente del modelo E5 usado en recuperación y no es un LLM generativo descargado por la aplicación.
+
 ### ADR-05. Chunking basado en layout y presupuesto completo
 
 **Decisión:** respetar títulos y jerarquías, agrupar párrafos y conservar cabeceras/filas de tablas. Los chunks incluyen el breadcrumb de documento y sección. El texto usa solapamiento acotado; filas/celdas grandes se dividen conservando su identidad.
@@ -247,6 +249,8 @@ La entrega trabaja con efectos externos **al menos una vez**. Leases, fencing y 
 | `PROVIDER_ALLOWED_HOSTS` | Destinos de modelo autorizados |
 
 La imagen incluye Tesseract con datos de inglés. Para otros idiomas OCR deben instalarse sus datos y configurarse la imagen correspondiente; indicar otro idioma en una variable no instala esos paquetes.
+
+El presupuesto de extracción se comprueba entre operaciones PDF. Una llamada nativa puede finalizar después de ese umbral; las tareas Celery tienen además límites de ejecución. El deadline de la previsualización bajo demanda termina su proceso de renderizado cuando se agota.
 
 ### Generador desde la interfaz
 
@@ -337,6 +341,8 @@ python3 -m venv .venv
 ```
 
 Los tests unitarios aíslan proveedores externos con mocks. Se prueban contratos estructurados, límites numéricos, filas, identificación de equipos, geometría, autenticación, reintentos, leases y publicación. Los tests de previsualización comparan píxeles y prueban caché, autorización y terminación por deadline.
+
+El arranque de pytest descarta `.env` y variables de configuración de producción heredadas. Se conservan únicamente los opt-ins explícitos de integración indicados a continuación; cada caso configura su entorno de prueba. Una regresión ejecuta una prueba HTTP real con variables de producción sintéticas para comprobar este aislamiento.
 
 **Omisiones explícitas:** PostgreSQL requiere `CATALOG_TEST_DATABASE_URL` con una base de pruebas; el recorrido HTTPS requiere `STACK_TEST_URL`, `STACK_TEST_USERNAME` y `STACK_TEST_PASSWORD`; los tests E5 necesitan `SEMANTIC_TEST_MODEL_DIR`. Una suite local con casos omitidos no acredita esas integraciones.
 
@@ -440,7 +446,9 @@ Las instrucciones para publicación privada y actualización de una instalación
 - Las órdenes que aparezcan en un PDF se tratan como contenido documental. Los controles reducen riesgos de generación, sin garantizar inmunidad universal a prompt injection.
 - El proyecto es de un propietario por instalación. No incluye cuentas públicas ni aislamiento multiusuario/por organización.
 
-Para entregar acceso a evaluadores, invita sus cuentas únicamente a este repositorio privado desde sus ajustes de colaboradores, con acceso de lectura cuando esté disponible. No compartas `.env`, volúmenes o credenciales de tu instalación ni añadas acceso a otros repositorios. El colaborador inicializa su copia con sus credenciales.
+Para entregar acceso a evaluadores, invita sus cuentas únicamente a este repositorio privado desde sus ajustes de colaboradores. No compartas `.env`, volúmenes o credenciales de tu instalación ni añadas acceso a otros repositorios. El colaborador inicializa su copia con sus credenciales.
+
+GitHub distingue el acceso al proyecto del rol asignado: en un repositorio privado de cuenta personal los colaboradores reciben lectura y escritura. Si se necesita exclusivamente lectura, un repositorio propiedad de una organización permite el rol **Read**. Consulta los [permisos de repositorios personales](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/repository-access-and-collaboration/permission-levels-for-a-personal-account-repository) y los [roles de organización](https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-repository-roles/repository-roles-for-an-organization) antes de enviar la invitación.
 
 ## Resolución de problemas
 

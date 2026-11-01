@@ -40,8 +40,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "e598717ca5243d7aa22a53e0287e454f968398397ee979ae2b6d16cb39ddc589",
-      "bytes": 34114
+      "sha256": "660f2f173ebb754d25b64e5b4d1e1ee5926535db72f95445c014b3e753ad75d5",
+      "bytes": 35758
     },
     {
       "path": "backend/app/__init__.py",
@@ -220,8 +220,8 @@
     },
     {
       "path": "backend/app/infrastructure/pdf/pymupdf_parser.py",
-      "sha256": "d11217cbf38cbdb63d29cba78d77850518bb0a8cb8efde397cd15a724eff88e8",
-      "bytes": 25866
+      "sha256": "8f0ee90808ff503cd9ba7410cd6bd53fb76e78e55131eb1cf768aebbfb836d51",
+      "bytes": 24955
     },
     {
       "path": "backend/app/infrastructure/providers.py",
@@ -410,8 +410,8 @@
     },
     {
       "path": "backend/tests/conftest.py",
-      "sha256": "16ba283b351aaae43c59d21bbb6b2c2c755c7f3b02cb4b0447c97b0d169de1d3",
-      "bytes": 6022
+      "sha256": "fdbbae86dcae5bd892f212d6d94ada22eb4e9150c85bb33221bb3c19de2d8b47",
+      "bytes": 6768
     },
     {
       "path": "backend/tests/integration/test_api_and_pdf_pipeline.py",
@@ -479,11 +479,6 @@
       "bytes": 16652
     },
     {
-      "path": "backend/tests/unit/test_cached_table_text.py",
-      "sha256": "55ae2c4069abb8cb4460909b198f847e109b0553c8214d92ddf8a240c9acb233",
-      "bytes": 1378
-    },
-    {
       "path": "backend/tests/unit/test_catalog.py",
       "sha256": "c5602b546a619c8edb260dd100c1a8309950f3a6238fa424cd52eb862ea83c0f",
       "bytes": 19511
@@ -492,6 +487,11 @@
       "path": "backend/tests/unit/test_deployment_script.py",
       "sha256": "490ef1a9df1adfa1a8349d34cbda89d661b0020e33da3751128f493c618ec946",
       "bytes": 3013
+    },
+    {
+      "path": "backend/tests/unit/test_environment_isolation.py",
+      "sha256": "9b9df66ecb3c2fbdf15155a92938311b886c918728e166f45c69f605391a32bd",
+      "bytes": 1064
     },
     {
       "path": "backend/tests/unit/test_evaluation_contract.py",
@@ -565,8 +565,8 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "76e20f338d1d401e5002c1469ca2464ee697261842cef5c4916c99b12fa4b761",
-      "bytes": 8082
+      "sha256": "92723c55666605061e10a0e9bf26f548ed8b7b003523e05f61be59db9ed7ad26",
+      "bytes": 8159
     },
     {
       "path": "docs/IMPLEMENTACION_V4.md",
@@ -575,8 +575,8 @@
     },
     {
       "path": "docs/PERFORMANCE.md",
-      "sha256": "9c770ddffe60ebc3f0ce0fd40cf5ab7ff457608b3e7d643f7b45282875dbc514",
-      "bytes": 5265
+      "sha256": "40079c99995aa27419ea521cf789b14da40d9143125473ddf543b9876ba2ebe1",
+      "bytes": 5288
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",

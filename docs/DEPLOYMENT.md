@@ -119,6 +119,6 @@ En instalaciones con un túnel privado, la URL de localhost depende de que ese t
 
 ## Compartir la entrega
 
-Mantener el repositorio privado e invitar cuentas desde **Settings > Collaborators** de ese repositorio. La invitación debe referirse solo al proyecto. No entregar el `.env` del autor, credenciales SSH, certificados, datos o volúmenes. La capacidad de asignar un rol de lectura depende del tipo de propietario/plan del repositorio; revisar el rol mostrado por GitHub antes de enviarla.
+Mantener el repositorio privado e invitar cuentas desde **Settings > Collaborators** de ese repositorio. La invitación debe referirse solo al proyecto. No entregar el `.env` del autor, credenciales SSH, certificados, datos o volúmenes. En una cuenta personal, GitHub otorga lectura y escritura a colaboradores de repositorios privados; para un rol exclusivamente **Read** se utiliza un repositorio de organización. Revisar el rol antes de enviar la invitación.
 
 Los evaluadores crean su administrador y proveedor en su instalación. El acceso al repositorio no implica acceso a la aplicación ya desplegada del administrador ni a otros repositorios.

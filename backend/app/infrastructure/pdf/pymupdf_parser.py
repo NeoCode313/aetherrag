@@ -414,11 +414,6 @@ class PyMuPDFDocumentParser(DocumentParser):
         except Exception as exc:
             logger.debug("Table detection skipped on page %d: %s", page.number + 1, exc)
             return []
-        # Read the page text once. Retain the legacy cell-clipped extraction for
-        # boundary-crossing words, where clipping individual glyphs can differ
-        # from selecting words out of a full-page TextPage.
-        textpage = page.get_textpage(flags=pymupdf.TEXTFLAGS_TEXT) if tables else None
-        word_boxes = [word[:4] for word in textpage.extractWORDS()] if textpage else []
         extracted = []
         for tbl in tables:
             try:
@@ -428,7 +423,7 @@ class PyMuPDFDocumentParser(DocumentParser):
                 # repair such numbers by guessing after the fact.
                 cell_rows = getattr(tbl, "rows", None)
                 rows = [
-                    [PyMuPDFDocumentParser._cell_text(page, cell, textpage, word_boxes) if cell else "" for cell in row.cells]
+                    [page.get_text("text", clip=pymupdf.Rect(cell), sort=True).strip() if cell else "" for cell in row.cells]
                     for row in cell_rows
                 ] if cell_rows else tbl.extract()
             except Exception:
@@ -437,16 +432,6 @@ class PyMuPDFDocumentParser(DocumentParser):
                 continue
             extracted.append((rows, tuple(tbl.bbox)))
         return extracted
-
-    @staticmethod
-    def _cell_text(page, cell, textpage, word_boxes) -> str:
-        rect = pymupdf.Rect(cell)
-        crosses_boundary = any(
-            min(x1, rect.x1) > max(x0, rect.x0) and min(y1, rect.y1) > max(y0, rect.y0)
-            and not (rect.x0 <= x0 and rect.y0 <= y0 and x1 <= rect.x1 and y1 <= rect.y1)
-            for x0, y0, x1, y1 in word_boxes)
-        return page.get_text("text", clip=rect, sort=True,
-                             textpage=None if crosses_boundary else textpage).strip()
 
     @staticmethod
     def _rows_to_markdown(rows: list[list[str]]) -> str:
