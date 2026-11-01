@@ -20,6 +20,10 @@ def contextualize_question(question: str, history: Sequence[ConversationTurn]) -
     """Carry explicit user context through follow-ups; assistant text is never evidence."""
     def followup(text: str) -> bool:
         text = text.strip().lstrip("¿¡?! ")
+        # A standalone request can contain "su" while naming a completely new topic.
+        # Do not contaminate it with a question from the previous PDF.
+        if re.match(r"(?:puedes?|podrias?|explica(?:me)?|describe|define|que (?:es|son)|what (?:is|are)|explain)\b", text, re.I):
+            return False
         return len(text) <= 180 and bool(re.search(
             r"\b(su|sus|ese|esa|esto|ello|its|that|this)\b|^(?:y|and)\b", text.lower()))
     if not followup(question):
@@ -72,6 +76,8 @@ class QueryRAGUseCase:
         dense = self.vector_store.dense_search(query_dense, limit=pool, document_ids=document_ids)
         sparse = self.vector_store.sparse_search(query_sparse, limit=pool, document_ids=document_ids)
         scored = self.ranker.fuse(dense, sparse, query=contextual_q, top_k=k)
+        source_preview = [{"document": item.chunk.document_name, "page": item.chunk.page,
+                           "snippet": item.chunk.text[:400]} for item in scored[:3]]
         retrieval_ms = int((time.perf_counter() - t_start) * 1000)
         best_dense = max((sc.dense_score for sc in scored if sc.dense_score is not None), default=0.0)
         codes = extract_technical_codes(contextual_q)
@@ -90,7 +96,8 @@ class QueryRAGUseCase:
                 answer_mode="extractive_evidence" if not getattr(self.llm, "supports_images", False)
                             and self.llm.model_name.startswith("local-") else "grounded_answer",
                 message_id=uuid.uuid4().hex,
-                metadata={"semantic_support": "not_assessed", "retrieval_question": contextual_q})
+                metadata={"semantic_support": "not_assessed", "retrieval_question": contextual_q,
+                          "abstention_stage": "retrieval", "retrieved_sources": source_preview})
         candidates = self.prompt_builder.collect_visuals(scored)
         loaded: dict[str, tuple[bytes, str]] = {}
         supports_images = bool(getattr(self.llm, "supports_images", False))
@@ -131,5 +138,6 @@ class QueryRAGUseCase:
             timings_ms={"retrieval_ms": retrieval_ms, "generation_ms": generation_ms, "total_ms": elapsed},
             metrics=metrics, answer_mode=raw.answer_mode, message_id=uuid.uuid4().hex,
             metadata={**bundle.validation_metadata, "retrieval_question": contextual_q,
+                      "retrieved_sources": source_preview,
                       "supports_images": supports_images,
                       "available_related_visual_ids": list(bundle.available_related_visual_ids)})

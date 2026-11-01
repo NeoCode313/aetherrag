@@ -191,6 +191,43 @@ test("workbench security and provenance in a real browser", async (t) => {
     await context.close();
   });
 
+  await t.test("changing the PDF clears query context while preserving historical citations", async () => {
+    const queries = [];
+    const { context, page, errors } = await setup(({ request, pathname, json }) => {
+      if (pathname.endsWith("/query")) { queries.push(request.postDataJSON()); return json(answer("Academic")); }
+      if (pathname.endsWith("/seed-sample")) return json({ job_id: "new-job", file_name: "New-PDF.pdf" }, 202);
+      if (pathname.endsWith("/new-job")) return json({ status: "completed", progress: 100, message: "Complete" });
+      return json({});
+    });
+    await page.locator("#chat-input").fill("Primera pregunta sobre un PDF");
+    await page.locator("#chat-form").evaluate(form => form.requestSubmit());
+    await page.locator(".inline-cite-btn").waitFor();
+    await page.locator("#btn-seed-demo").click();
+    await page.waitForFunction(() => document.getElementById("job-status-pill").textContent === "completed");
+    await page.locator("#chat-input").fill("Pregunta sobre el nuevo PDF y su rango");
+    await page.locator("#chat-form").evaluate(form => form.requestSubmit());
+    await page.waitForFunction(() => document.querySelectorAll(".inline-cite-btn").length === 2);
+    assert.deepEqual(queries[1].history, []);
+    assert.equal(await page.locator(".msg-assistant .inline-cite-btn").count(), 2);
+    assert.deepEqual(errors, []);
+    await context.close();
+  });
+
+  await t.test("abstention diagnostics show source text without executing provider markup", async () => {
+    const data = { ...answer("Academic"), abstained: true, citations: [],
+      metadata: { provider_reason: '<img src=x onerror="window.pwned=1">',
+        retrieved_sources: [{ document: "Academic.pdf", page: 2, snippet: "Una proporción toma valores entre cero y uno." }] } };
+    const { context, page, errors } = await setup(({ json }) => json(data));
+    await page.locator("#chat-input").fill("Consulta sin soporte");
+    await page.locator("#chat-form").evaluate(form => form.requestSubmit());
+    await page.locator(".abstention-details summary").click();
+    assert.match(await page.locator(".abstention-details").textContent(), /Academic.pdf/);
+    assert.equal(await page.locator(".abstention-details img").count(), 0);
+    assert.equal(await page.evaluate(() => window.pwned), undefined);
+    assert.deepEqual(errors, []);
+    await context.close();
+  });
+
   await t.test("stopping a request says the server may continue", async () => {
     let pending;
     const { context, page, errors } = await setup(({ route, pathname, json }) => {

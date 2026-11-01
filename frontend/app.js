@@ -267,6 +267,7 @@ async function deleteDocument(documentId) {
   try {
     const response = await apiFetch(`/api/v1/documents/${encodeURIComponent(documentId)}`, { method: "DELETE" });
     if (!response.ok) throw new Error(errorText(await response.json(), `HTTP ${response.status}`));
+    state.history = [];
     await Promise.all([refreshDocuments(), refreshSystemStatus()]);
   } catch (error) { reportOpsProblem("No se pudo eliminar el documento", String(error)); }
 }
@@ -342,7 +343,7 @@ function startJobPolling(jobId, fileName) {
       if (["completed", "failed"].includes(job.status)) {
         state.pollingTimer = null;
         if (job.status === "failed") reportOpsProblem("La ingesta falló", job.error || job.message);
-        else finishOpsMonitor();
+        else { state.history = []; finishOpsMonitor(); }
         await Promise.all([refreshDocuments(), refreshSystemStatus()]);
         return;
       }
@@ -573,6 +574,16 @@ function renderAssistantMessage(container, data, messageId) {
   topRight.append(inspectBtn);
   top.append(topLeft, topRight);
   container.append(top, renderMarkdown(data.answer, data.citations || [], messageId));
+  if (data.abstained) {
+    const diagnostic = node("details", "abstention-details");
+    diagnostic.append(node("summary", "", "Ver el motivo y los fragmentos recuperados"));
+    if (data.metadata?.provider_reason) diagnostic.append(node("p", "", "Motivo indicado por el generador: " + data.metadata.provider_reason));
+    diagnostic.append(node("p", "", "Estos extractos muestran lo que se recuperó; no son una respuesta validada."));
+    for (const source of data.metadata?.retrieved_sources || []) {
+      diagnostic.append(node("strong", "", source.document + " · página " + source.page), node("blockquote", "", source.snippet));
+    }
+    container.append(diagnostic);
+  }
 
   if (data.primary_visual && !data.abstained) {
     const visual = data.primary_visual;

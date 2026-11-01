@@ -166,10 +166,13 @@ class DefensivePromptBuilder:
     def verify_and_resolve(self, raw: GeneratedAnswer, bundle: PromptBundle, question: str
             ) -> tuple[str, bool, str | None, list[Citation], VisualEvidence | None, list[VisualEvidence]]:
         def abstain(reason: str):
+            bundle.validation_metadata.setdefault("abstention_stage", "validation")
             bundle.validation_metadata.update(rejected=True, reason=reason, semantic_support="not_assessed")
             return ("No cuento con evidencia suficiente para responder esta consulta con rigor. " + reason,
                     True, reason, [], None, [])
         if raw.abstained or raw.evidence_coverage == "none":
+            bundle.validation_metadata.update(abstention_stage="generation",
+                provider_reason=raw.abstention_reason[:500], missing_facets=raw.missing_facets[:10])
             return abstain("Los fragmentos recuperados no permiten responder lo solicitado.")
         if any(alias not in bundle.alias_to_chunk for alias in raw.cited_ids):
             return abstain("La salida del proveedor contiene referencias textuales inexistentes.")

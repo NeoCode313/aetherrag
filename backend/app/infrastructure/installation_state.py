@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import hashlib
+import copy
 import json
 import os
 from pathlib import Path
@@ -70,8 +71,15 @@ class InstallationState:
                         fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
     def read(self):
-        with self.transaction() as state:
-            return json.loads(json.dumps(state))
+        # Atomic replacement guarantees whole documents; readers need no writer lock.
+        # A file signature detects changes made by another API/worker process.
+        with _LOCK:
+            signature = self.path.stat()
+            stamp = (signature.st_mtime_ns, signature.st_size, signature.st_ino)
+            if getattr(self, "_cached_stamp", None) != stamp:
+                self._cached_state = json.loads(self.path.read_text(encoding="utf-8"))
+                self._cached_stamp = stamp
+            return copy.deepcopy(self._cached_state)
 
     def register(self, username, password_hash, token):
         from app.domain.exceptions import ConflictError, ValidationError

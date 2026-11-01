@@ -80,8 +80,8 @@
     },
     {
       "path": "backend/app/application/services/prompt_builder.py",
-      "sha256": "bdc461ae54d47f45fb4217edd05d5a6d019e678ea0becbfda46807e6c69f214a",
-      "bytes": 17613
+      "sha256": "96e7ab61af974905994a8fea91521d2a618370749146846ff863547654f0bd39",
+      "bytes": 17875
     },
     {
       "path": "backend/app/application/services/spatial_linker.py",
@@ -100,8 +100,8 @@
     },
     {
       "path": "backend/app/application/use_cases/query_rag.py",
-      "sha256": "65858bd766b3a590fc70b2794d47d47a6dd5a52e270d6f734dc6cce3d83d8b00",
-      "bytes": 8305
+      "sha256": "0d61334a32de61b489fc9ecca11082f4bcb7bd172906edc9bddbbe8e6636fbe4",
+      "bytes": 8946
     },
     {
       "path": "backend/app/cli.py",
@@ -160,8 +160,8 @@
     },
     {
       "path": "backend/app/infrastructure/installation_state.py",
-      "sha256": "9914e5ee9b6847ee12c5f07f9af89d5ca5e41647cdf557275ff2f5b4bd362ed7",
-      "bytes": 4975
+      "sha256": "c0fef01844243690af70e51da109b9db576e3ff7ebadc78c8b94cd0262978295",
+      "bytes": 5448
     },
     {
       "path": "backend/app/infrastructure/llm/__init__.py",
@@ -409,6 +409,11 @@
       "bytes": 3704
     },
     {
+      "path": "backend/tests/integration/test_independent_pdf_queries.py",
+      "sha256": "f441d780b177f670559bbc7e818fd5aa0dd3bbcbc4e65cce50b6e3d56718e057",
+      "bytes": 3676
+    },
+    {
       "path": "backend/tests/integration/test_real_stack.py",
       "sha256": "21bcaca83216d940643849a7e3671fed6eafa99fc78010c610209ad655285b0a",
       "bytes": 3092
@@ -510,8 +515,8 @@
     },
     {
       "path": "docs/IMPLEMENTACION_V4.md",
-      "sha256": "29701d9287b5befd8af0aa035e6c8acd54e9948a951c5fca92aa831c6c7bb929",
-      "bytes": 5957
+      "sha256": "4a3fa1f3822cb9120b8d7f26f5e8404a4820998817f433f35c92832b85cefd43",
+      "bytes": 6431
     },
     {
       "path": "docs/REQUISITOS_CUMPLIMIENTO.md",
@@ -530,8 +535,8 @@
     },
     {
       "path": "frontend/app.js",
-      "sha256": "75cdb07ca768c3f4123768616268e004a1163b7a508bab1123ae7221f088d543",
-      "bytes": 54373
+      "sha256": "0fe634534fd34e60a435276e5e54fbaf088a870e58b90847d6bea1e4cacccdf3",
+      "bytes": 55103
     },
     {
       "path": "frontend/index.html",
@@ -555,8 +560,8 @@
     },
     {
       "path": "frontend/tests/workbench.spec.cjs",
-      "sha256": "6d3a737c24a57b5775149bbf2420e9f77cdcebe8396bac9a1f0735785fb888f2",
-      "bytes": 13501
+      "sha256": "9a9fa43a46669e0f9fb94e059a5ffcb28b5b47c41e37ac561df5951de75ef7be",
+      "bytes": 15893
     },
     {
       "path": "frontend/vendor/dompurify-3.4.17.js",

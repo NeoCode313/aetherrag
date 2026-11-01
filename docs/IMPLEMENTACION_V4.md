@@ -38,7 +38,9 @@ El archivo privado no está cifrado. La protección en reposo depende del usuari
 6. Configuración incompleta: la interfaz permite repararla.
 7. Adaptadores HTTP y errores de validación sin devolver contenido privado.
 8. Navegador contra API real, SQLite y Qdrant embebido, con reinicio y login posterior.
-9. CI adicional para PostgreSQL y stack Docker HTTPS → API → outbox → Celery → Qdrant. Consultar cada ejecución antes de afirmar que una revisión pasó.
+9. PDFs independientes del demo: consultas académicas y de mantenimiento, texto literal, aislamiento por documento y abstención ante conceptos ausentes.
+10. El historial de consultas se reinicia al completar una nueva ingesta o eliminar un documento; las respuestas anteriores conservan sus citas. Una pregunta completa no hereda otro tema por contener «su». La abstención permite inspeccionar motivo y fragmentos recuperados sin presentarlos como respuesta validada.
+11. CI adicional para PostgreSQL y stack Docker HTTPS → API → outbox → Celery → Qdrant. Consultar cada ejecución antes de afirmar que una revisión pasó.
 
 Las pruebas omiten explícitamente PostgreSQL y Docker si faltan sus servicios. Los contratos Bash se ejecutan en Linux. Un resultado local verde no sustituye la prueba del stack.
 
